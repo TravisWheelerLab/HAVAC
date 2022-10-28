@@ -1,0 +1,6 @@
+[submodule "P7HmmReader"]
+	path = P7HmmReader
+	url = https://github.com/TravisWheelerLab/P7HmmReader.git
+[submodule "FastaVector"]
+	path = FastaVector
+	url = https://github.com/TravisWheelerLab/FastaVector.git
