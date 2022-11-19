@@ -8,6 +8,10 @@
 #define HAVAC_LOG_ONE_FOURTH -1.3862943611198906
 
 //this function is straight out of HMMER
+//defines the inverse gumble distribution, that is,
+// for a given p-value, what score is required to hit that value?
+// note that this is for the full model, not the single-hit reduced model we're working with,
+// so we'll need to add some penalties later to make it come out to the right values.
 double esl_gumbel_invsurv(double p, double mu, double lambda) {
   /* The real calculation is mu - ( log(-1. * log(1-p)) / lambda).
   *  But there's a problem with small p:
@@ -36,21 +40,29 @@ double esl_gumbel_invsurv(double p, double mu, double lambda) {
 //mu and lambda come from the STATS MSV line on the profile hmm
 //max length also from profile Hmm, same with modelLength
 float findThreshold256ScalingFactor(double p, double mu, double lambda, double maxLength, double modelLength) {
-  double gumbleInverse = esl_gumbel_invsurv(p, mu, lambda);
-  float tloop = logf((float)maxLength / (float)(maxLength + 3));
-  float tloop_total = tloop * maxLength;
-  float tmove = logf(3.0f / (float)(maxLength + 3));
-  float tbmk = logf(2.0f / ((float)modelLength * (float)(modelLength + 1)));
+  //given the probability of survival, give me the score. what score gives the p value?
+  //what score do we need to hit the required p value? this value is for the full model. 
+  double scoreRequiredForFullModelPvalue = esl_gumbel_invsurv(p, mu, lambda); //inverse survival (gumble distribution)
+  //we're only working with the single-hit model, so we need to add some penalties to make the probabilities match.
+  float nStateLoopPenalty = logf((float)maxLength / (float)(maxLength + 3));  //probablility of staying in the n state (or c state), looping.
+  float nStateLoopPenaltyTotal = nStateLoopPenalty * maxLength;  //total length penalty for the max sequence length
+  float nStateEscapePenalty = logf(3.0f / (float)(maxLength + 3));  //penalty for escaping the n or c states (increases by 1 every time seq len doubles)
+  float bStateToKthMStatePenalty = logf(2.0f / ((float)modelLength * (float)(modelLength + 1)));  //penalty for transition from b to kth 'm' option (msubk)
   float transitionEToC = logf(1.0f / 2);
-  float bg_P = (float)maxLength / (float)(maxLength + 1);
-  float nullSc = (float)maxLength * log(bg_P) + log(1.0 - bg_P);
+  float coreModelAdjustment = (nStateEscapePenalty + nStateLoopPenaltyTotal + 
+    nStateEscapePenalty + bStateToKthMStatePenalty + transitionEToC);
 
-  float scThresh =
-    (gumbleInverse * eslCONST_LOG2) + nullSc - (tmove + tloop_total + tmove + tbmk + transitionEToC);
+  float backgroundLoopProbability = (float)maxLength / (float)(maxLength + 1); //background loop probability
+  float backgroundLoopPenaltyTotal = (float)maxLength * log(backgroundLoopProbability);  //total length penalty for the max sequence length background, change to bg_loop total or something
+  float backgroundMovePenalty = log(1.0 - backgroundLoopProbability);
+  float backgroundScore = backgroundLoopPenaltyTotal + backgroundMovePenalty;
+
+  float baseScoreThreshold =
+    (scoreRequiredForFullModelPvalue * eslCONST_LOG2) - coreModelAdjustment + backgroundScore;
   // that's in nats; let's shift to bits
-  scThresh /= eslCONST_LOG2;
+  baseScoreThreshold /= eslCONST_LOG2;
 
-  float scaleFactor = 255 / scThresh;
+  float scaleFactor = 256.0f / baseScoreThreshold; //a hit should be triggered if a cell hits 256 (causes an 8-bit int overflow)
 
   return scaleFactor;
 }

@@ -4,17 +4,18 @@
 // this file contains definitions that may be useful for host code and test code, as well as device code.
 //alternatively could be 64 for a 16B hit report
 
-//#define HAVAC_TESTING
+#define HAVAC_TESTING
 //#define HAVAC_PER_CELL_DATA_TESTING
 
+
+#define USE_HIT_SIEVE
+
 #ifdef HAVAC_TESTING
-#define NUM_CELL_GROUPS 192	//next 128
-#define CELLS_PER_GROUP 48	//next 80
-#define HAVAC_MAX_SUPPORTED_PHMM_LENGTH
+#define NUM_CELL_GROUPS 4
+#define CELLS_PER_GROUP 512
 #else
-#define NUM_CELL_GROUPS 128
-#define CELLS_PER_GROUP 48
-#define HAVAC_MAX_SUPPORTED_PHMM_LENGTH
+#define NUM_CELL_GROUPS 4
+#define CELLS_PER_GROUP 2048	//3072
 #endif
 #define NUM_CELL_PROCESSORS (NUM_CELL_GROUPS *CELLS_PER_GROUP)
 

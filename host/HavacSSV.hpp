@@ -1,5 +1,5 @@
-#ifndef HAVAC_HOST_MAIN_HPP
-#define HAVAC_HOST_MAIN_HPP
+#ifndef HAVAC_HOST_SSV_HPP
+#define HAVAC_HOST_SSV_HPP
 
 #include "xrt/xrt_bo.h"
 #include <boost/optional.hpp>

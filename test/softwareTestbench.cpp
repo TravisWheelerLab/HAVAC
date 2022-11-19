@@ -35,7 +35,7 @@ void packSequenceVectorIndices(uint8_t* sequenceAsVectorIndices, size_t sequence
 int8_t* makeEmissionsAsInt8_tList(struct HmmSeqPair& hmmSeqPair);
 uint8_t nucToEncoding(const uint8_t nuc);
 
-const uint32_t numTests = 8;
+const uint32_t numTests = 4;
 const float requiredPValue = 0.05f;
 
 int main() {
@@ -79,12 +79,18 @@ int main() {
 
     printf("invoking hardware ssv...\n");
     fflush(stdout);
+#ifdef USE_HIT_SIEVE
+    std::vector<struct HitReportByGroup> hardwareSsvHits = invokeHardwareSsv(sequenceAsVectorIndices, hmmSeqPair.sequenceLength,
+      emissionsAsInt8_t, hmmSeqPair.phmmList->phmms[0].header.modelLength, errorCode);
+#else
     std::vector<struct HitReport> hardwareSsvHits = invokeHardwareSsv(sequenceAsVectorIndices, hmmSeqPair.sequenceLength,
       emissionsAsInt8_t, hmmSeqPair.phmmList->phmms[0].header.modelLength, errorCode);
+#endif
 
 
     printf("soft ssv returned %zu hits\n", softwareSsvHits.size());
     printf("hard ssv returned %zu hits\n", hardwareSsvHits.size());
+    fflush(stdout);
 
     #ifdef HAVAC_PER_CELL_DATA_TESTING
     printf("comparing data on per-cell basis\n");
@@ -116,29 +122,45 @@ int main() {
 }
 
 /*invoke the hardware HAVAC toplevel function, and return a vector of the hit reports that HAVAC generated*/
-std::vector<struct HitReport> invokeHardwareSsv(const uint8_t* sequenceAsVectorIndices, size_t sequenceLength,
+#ifdef USE_HIT_SIEVE
+inline std::vector<struct HitReportByGroup> invokeHardwareSsv(const uint8_t* sequenceAsVectorIndices, size_t sequenceLength,
   const int8_t* emissionsAsInt8_t, const size_t phmmLength, int8_t& errorCode) {
-  errorCode = 0;
+#else
+inline std::vector<struct HitReport> invokeHardwareSsv(const uint8_t* sequenceAsVectorIndices, size_t sequenceLength,
+  const int8_t* emissionsAsInt8_t, const size_t phmmLength, int8_t& errorCode) {
+#endif
+	errorCode = 0;
+#ifdef USE_HIT_SIEVE
+	std::vector<struct HitReportByGroup> hitReportList;
+#else
   std::vector<struct HitReport> hitReportList;
+#endif
   const size_t sequenceLengthInSegments = sequenceLength / (NUM_CELL_PROCESSORS);
-  if (sequenceLength % NUM_CELL_PROCESSORS != 0) {
+  if (sequenceLength % NUM_CELL_PROCESSORS != 0) {i
     printf("ERROR: seq length was %zu was not a multiple of num_cell_processors %zu!\n", sequenceLength, NUM_CELL_PROCESSORS);
+    fflush(stdout);
     errorCode = -1;
   }
 
 
   const uint32_t NUM_HIT_REPORTS_SUPPORTED = phmmLength * sequenceLengthInSegments;
+#ifdef USE_HIT_SIEVE
+  struct HitReportByGroup* hitReportMemory = (struct HitReportByGroup*)malloc(sizeof(struct HitReportByGroup) * NUM_HIT_REPORTS_SUPPORTED);
+#else
   struct HitReport* hitReportMemory = (struct HitReport*)malloc(sizeof(struct HitReport) * NUM_HIT_REPORTS_SUPPORTED);
+#endif
   if (hitReportMemory == NULL) {
     printf("ERROR: could not allocate memory for hit report buffer\n");
     errorCode = -2;
     return hitReportList;
   }
-
-  uint32_t numHits;
+  printf("invoking havac kernel\n");
+  fflush(stdout);
+  uint32_t numHits = 0;
   HavacKernelTopLevel((struct SequenceSegment*)sequenceAsVectorIndices, sequenceLengthInSegments,
     (struct PhmmVector*)emissionsAsInt8_t, phmmLength, hitReportMemory, numHits);
-
+  printf("havac kernel finished\n");
+  fflush(stdout);
 
   if (numHits > NUM_HIT_REPORTS_SUPPORTED) {
     printf("ERROR: num hits %zu was greater than max supported of %zu\n", numHits, NUM_HIT_REPORTS_SUPPORTED);
@@ -157,7 +179,12 @@ std::vector<struct HitReport> invokeHardwareSsv(const uint8_t* sequenceAsVectorI
 
 
 /*compares the hardware ssv hits to the software reference. */
+#ifdef USE_HIT_SIEVE
+bool compareSsvHitLists(std::vector<struct HitReportByGroup> hardwareSsvHits, std::vector<struct SoftSsvHit> softwareSsvHits) {
+#else
 bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vector<struct SoftSsvHit> softwareSsvHits) {
+#endif
+
   bool allTestsPass = true;
   //iterate over the software ssv hits, and check that each one can be explained by a hardware hit.
   for (size_t i = 0; i < softwareSsvHits.size();i++) {
@@ -168,13 +195,28 @@ bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vect
     size_t sequencePositionInSegment = sequenceIndex - (sequenceSegmentIndex * NUM_CELL_PROCESSORS);
     size_t softwareGroupIndex = sequencePositionInSegment / CELLS_PER_GROUP;
 
+#ifdef USE_HIT_SIEVE
+    size_t expectedGroupIndex = sequencePositionInSegment / HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH;
+    size_t expectedBitInGroup = sequencePositionInSegment % HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH;
+#endif
+
     //iterate through the hardware hits, and check if any of them explain the hit.
     bool foundMatchingHitReport = false;
     for (auto& hardwareHit : hardwareSsvHits) {
       //check to see if the phmm index and sequence pass match
+#ifdef USE_HIT_SIEVE
+      if ((hardwareHit.phmmIndex == softwarePhmmIndex) && (hardwareHit.sequenceIndex == sequenceSegmentIndex) && (hardwareHit.groupIndex == expectedGroupIndex)) {
+#else
       if ((hardwareHit.phmmIndex == softwarePhmmIndex) && (hardwareHit.sequenceIndex == sequenceSegmentIndex)) {
-        //check to see if the group agrees, too
+
+#endif
+    	  //check to see if the group agrees, too
+#ifdef USE_HIT_SIEVE
+        if (hardwareHit.groupBits[expectedBitInGroup]) {
+#else
         if (hardwareHit.groupsPassingThreshold[softwareGroupIndex]) {
+#endif
+
           //the hit checks out, we're good!
           foundMatchingHitReport = true;
           break;
@@ -197,12 +239,34 @@ bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vect
   //now, we can iterate over the hardware hits, and see if they're all represented 
   for (auto& hardwareHit : hardwareSsvHits) {
     //assertion check to make sure the hardware hit actually has reported hit groups.
+#ifdef USE_HIT_SIEVE
+	    if (hardwareHit.groupHits.or_reduce() == 0) {
+#else
     if (hardwareHit.groupsPassingThreshold.or_reduce() == 0) {
+#endif
       printf("TEST FAILURE: hardware hit report @ s=%zu p=%zu had no groups asserted.\n", hardwareHit.sequenceIndex, hardwareHit.phmmIndex);
       allTestsPass = false;
     }
 
-
+#ifdef USE_HIT_SIEVE
+    for(uint32_t cellIndexInGroup = 0; cellIndexInGroup < HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH; cellIndexInGroup++){
+    	if(hardwareHit.groupedHits[cellIndexInGroup]){
+    		size_t sequencePosition = (hardwareHit.groupIndex * HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH) + (sequencePassIndex * NUM_CELL_PROCESSORS);
+    		bool foundMatchingSoftwareHit = false;
+    		for(auto& softwareHit: softwareSsvHits){
+    			if(softwareHit.phmmPosition = hardwareHit.phmmIndex && softwareHit.sequencePosition == sequencePosition){
+    				foundMatchingSoftwareHit = true;
+    				break;
+    			}
+    		}
+    		if(!foundMatchingSoftwareHit){
+    	          printf("TEST FAILURE: hardware hit report s=%u p=%u, bit %u was not represented in the software hit list.\n",
+    	            hardwareHit.sequenceIndex, hardwareHit.phmmIndex, cellIndexInGroup);
+    	          allTestsPass = false;
+    		}
+    	}
+    }
+#else
     //any group in this hitreport that asserted a hit should check for a corresponding software hit.
     for (size_t groupIndex = 0; groupIndex < NUM_CELL_GROUPS; groupIndex++) {
       if (hardwareHit.groupsPassingThreshold[groupIndex]) {
@@ -228,6 +292,7 @@ bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vect
         }
       }
     }
+#endif
   }
 
   return allTestsPass;

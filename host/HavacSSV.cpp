@@ -1,9 +1,10 @@
-#include "HavacHostMain.hpp"
+#include "HavacSSV.hpp"
 #include "../device/PublicDefines.h"
 #include <iostream>
 #include <cstring>
 #include <cassert>
 #include <cstdint>
+#include <vector>
 #include <boost/optional.hpp>
 
 // XRT includes
@@ -17,30 +18,58 @@
 #define NUM_NUCS_PADDING_BETWEEN_SEQUENCES 8
 
 
-std::array<struct HitReport>& invokeHavac(const std::vector<uint8_t>& fullPaddedSequence,
+std::vector<struct HavacHostHitReport>& invokeHavac(const std::vector<uint8_t>& fullPaddedSequence,
   const std::vector<uint8_t>& phmmMatchScores, const std::string& xclbinSrc);
 xrt::run& invokeHavacAsync(const std::vector<uint8_t>& fullPaddedSequence,
   const std::vector<uint8_t>& phmmMatchScores, const std::string& xclbinSrc);
 
-std::array<struct HitReport>& havacRunSsv(const struct FastaVector& fastaVector, const struct P7HmmList& phmmList,
+boost::optional<std::vector<struct HavacHostHitReport>> havacRunSsv(const struct FastaVector& fastaVector, const struct P7HmmList& phmmList,
   float pValueThreshold, const std::string& xclbinSrc) {
+
+
+  uint32_t deviceIndex = 0; //oh god how do you get this device index if it's not zero?
+  //none of the documentation (of what little exists) uses anything but 0, and even reading the source code
+  //doesn't elucidate the deviceIndex, it's just a publically visible member data that doesn't get used in the class
+
+
+
 
   xrt::run havacRuntimeObject = havacRunSsvAsync(fastaVector, phmmList, pValueThreshold, xclbinSrc);
   ert_cmd_state finishedRunState = havacRuntimeObject.wait();
 
   if (finishedRunState == ERT_CMD_STATE_TIMEOUT) {
-
+    std::cout << "error upon invoking Havac SSV, timeout occurred." << std::endl;
+    return boost::none;
   }
+  else if (finishedRunState == ERT_CMD_STATE_NORESPONSE) {
+    std::cout << "error upon invoking Havac SSV, no response from HAVAC coprocessor." << std::endl;
+    return boost::none;
+  }
+  else if (finishedRunState == ERT_CMD_STATE_ABORT) {
+    std::cout << "error upon invoking Havac SSV, HAVAC coprocessor task aborted." << std::endl;
+    return boost::none;
+  }
+  else if (finishedRunState == ERT_CMD_STATE_ERROR) {
+    //fall-through error case to catch anything unexpected.
+    std::cout << "error upon invoking Havac SSV, HAVAC coprocessor reported generic error (cmd state ERT_CMD_STATE_ERROR." << std::endl;
+    return boost::none;
+  }
+  else if (finishedRunState != ERT_CMD_STATE_COMPLETED) {
+    std::cout << "error upon invoking Havac SSV, state returned code " << finishedRunState << "." << std::endl;
+    return boost::none;
+  }
+  else {
 
-  //uint32_t numHitsReported;
-  //numHitsOutputBuffer.sync();
-  //numHitsOutputBuffer.read(&numHitsReported);
-  
-  //allocateBufferForHitReports(...);
-  //check for good buffer
-  //bo::sync();
-  //use bo::read(dst, numHitsReported * sizeof(struct HitReport), 0);
+    auto numHitsbuffer = xrt::bo(device, buffer_size_in_bytes, bank_grp_idx_0);
+    uint32_t numHitsReported;
+    numHitsOutputBuffer.sync();
+    numHitsOutputBuffer.read(&numHitsReported);
 
+    allocateBufferForHitReports(...);
+    check for good buffer
+      bo::sync();
+    use bo::read(dst, numHitsReported * sizeof(struct HitReport), 0);
+  }
 
 }
 
@@ -171,7 +200,7 @@ void havacKernelWaitForCompletion(xrt::run& kernelRunObject) {
  * @ERT_CMD_STATE_QUEUED:      Internal scheduler state
  * @ERT_CMD_STATE_SUBMITTED:   Internal scheduler state
  * @ERT_CMD_STATE_RUNNING:     Internal scheduler state
- * @ERT_CMD_STATE_COMPLETE:    Set by scheduler when command completes
+ * @ERT_CMD_STATE_COMPLETED:   Set by scheduler when command completes
  * @ERT_CMD_STATE_ERROR:       Set by scheduler if command failed
  * @ERT_CMD_STATE_ABORT:       Set by scheduler if command abort
  * @ERT_CMD_STATE_TIMEOUT:     Set by scheduler if command timeout and reset
