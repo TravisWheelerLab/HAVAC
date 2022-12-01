@@ -85,6 +85,14 @@ void HavacMainLoop(uint32_t sequenceLengthInSegments, hls::stream<struct Sequenc
   struct PhmmVector* phmmVectorMemory, struct HitReport* hitReportMemory) {
 #endif
 
+#ifdef USE_HIT_SIEVE
+	hls::stream<struct TerminatingHitSieve0, 2> thresholdHitSieve0("thresholdHitSieve0");
+	hls::stream<struct TerminatingHitSieve1, 2> thresholdHitSieve1("thresholdHitSieve1");
+	hls::stream<struct TerminatingHitSieve2, 2> thresholdHitSieve2("thresholdHitSieve2");
+	hls::stream<struct TerminatingHitSieve3, 2> thresholdHitSieve3("thresholdHitSieve3");
+	hls::stream<struct TerminatingHitSieve4, 32> thresholdHitSieve4("thresholdHitSieve4");
+#endif
+
 HavacSequenceSegmentLoop:
   for (uint32_t sequenceSegmentIndex = 0; sequenceSegmentIndex < sequenceLengthInSegments; sequenceSegmentIndex++) {
 	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-dataflow
@@ -106,7 +114,15 @@ HavacSequenceSegmentLoop:
     setSequenceSegment(currentSequenceSegment, sequenceSegmentStream);
 #ifdef USE_HIT_SIEVE
     phmmVectorLoop(phmmLengthInVectors, currentSequenceSegment, phmmStream, isFirstSequenceSegment,
-      isLastSequenceSegment, sequenceSegmentIndex, hitReportMemory);
+      isLastSequenceSegment, sequenceSegmentIndex, thresholdHitSieve0);
+
+
+//	appendFullHitListtoQueue(cellsPassingThreshold, phmmIndex, sequenceIndex, thresholdHitSieve0);
+	filterThresholdHitsSieve1(thresholdHitSieve0,  thresholdHitSieve1);
+	filterThresholdHitsSieve2(thresholdHitSieve1, thresholdHitSieve2);
+	filterThresholdHitsSieve3(thresholdHitSieve2, thresholdHitSieve3);
+	filterThresholdHitsSieve4(thresholdHitSieve3, thresholdHitSieve4);
+	writeFilteredHitToMemory(thresholdHitSieve4, hitReportMemory);
 #else
     phmmVectorLoop(phmmLengthInVectors, currentSequenceSegment, phmmStream, isFirstSequenceSegment,
       isLastSequenceSegment, hitReportStream, sequenceSegmentIndex);
@@ -122,7 +138,7 @@ HavacSequenceSegmentLoop:
 #ifdef USE_HIT_SIEVE
 void phmmVectorLoop(uint32_t phmmLengthInVectors, struct SequenceSegment currentSequenceSegment, hls::stream<struct PhmmVector,
   PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment, bool isLastSequenceSegment,
-  uint32_t sequenceSegmentIndex, hls::stream<struct ThresholdHitSieve0> &hitSieveStream) {
+  uint32_t sequenceSegmentIndex, hls::stream<struct TerminatingHitSieve0, 2> &hitSieveStream) {
 #else
 //computes a full column down the DP matrix, going through the whole phmm.
 void phmmVectorLoop(uint32_t phmmLengthInVectors, struct SequenceSegment currentSequenceSegment, hls::stream<struct PhmmVector,
@@ -187,7 +203,7 @@ HavacPhmmVectorLoop:
     bufferedScoreQueueRead = readScoreFromScoreQueue(scoreQueue, isFirstSequenceSegment, isLastPhmmIndex);
     //send hit data to adjudicate hit
 #ifdef USE_HIT_SIEVE
-    adjudicateAndStreamHitReport(cellsPassingThreshold, phmmIndex, sequenceSegmentIndex, hitSieveStream);
+    adjudicateAndStreamHitReport(cellsPassingThreshold, phmmIndex, sequenceSegmentIndex, hitSieveStream, isLastPhmmIndex);
 #else
     adjudicateAndWriteHitReport(hitReportStream, cellsPassingThreshold, phmmIndex, sequenceSegmentIndex);
 #endif
@@ -386,116 +402,142 @@ void setPhmmFromStream(struct PhmmVector& phmmVector, hls::stream<struct PhmmVec
 
 
 #ifdef USE_HIT_SIEVE
+
 void adjudicateAndStreamHitReport(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex,
-		uint32_t sequenceIndex, hls::stream<struct ThresholdHitSieve0> &hitSieveStream){
-	if(cellsPassingThreshold[0].or_reduce() || cellsPassingThreshold[1].or_reduce() || cellsPassingThreshold[2].or_reduce() || cellsPassingThreshold[3].or_reduce()){
-		struct ThresholdHitSieve0 hitReport = {.phmmIndex=phmmIndex, .sequenceIndex=sequenceIndex, .groupedHits=cellsPassingThreshold};
-		if(!hitSieveStream.full()){
+		uint32_t sequenceIndex, hls::stream<struct TerminatingHitSieve0, 2> &hitSieveStream, bool isLastPhmmIndex){
+	//if any cell passes threshold, create a hit report. Also create a hit report if this is the last phmm index.
+	//if it was, set the terminator bool to true to show this is the end of the reporting for this sequence segment pass.
+	if(cellsPassingThreshold[0].or_reduce() || cellsPassingThreshold[1].or_reduce() || cellsPassingThreshold[2].or_reduce() ||
+			cellsPassingThreshold[3].or_reduce() || isLastPhmmIndex){
+		struct TerminatingHitSieve0 hitReport= {phmmIndex, sequenceIndex, cellsPassingThreshold, isLastPhmmIndex};
+//		if(!hitSieveStream.full()){
 			hitSieveStream.write(hitReport);
-		}
+//		}
 	}
 }
 
-void sieveHitReports(hls::stream<struct ThresholdHitSieve0> &hitSieveStream,
-	struct HitReportByGroup *hitReportMemory){
-	hls::stream<struct ThresholdHitSieve0, 4> thresholdHitSieve0("thresholdHitSieve0");
-	hls::stream<struct ThresholdHitSieve1, 4> thresholdHitSieve1("thresholdHitSieve1");
-	hls::stream<struct ThresholdHitSieve2, 4> thresholdHitSieve2("thresholdHitSieve2");
-	hls::stream<struct ThresholdHitSieve3, 4> thresholdHitSieve3("thresholdHitSieve3");
-	hls::stream<struct ThresholdHitSieve4, 16> thresholdHitSieve4("thresholdHitSieve4");
+//void appendFullHitListtoQueue(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex, uint32_t sequenceIndex,
+//		hls::stream<struct ThresholdHitSieve0>& fullHitListQueue){
+//	struct ThresholdHitSieve0 hitSieve0= {.phmmIndex=phmmIndex, .sequenceIndex=sequenceIndex, .groupedHits=cellsPassingThreshold};
+//	fullHitListQueue.write_nb(hitSieve0);
+//}
 
-	appendFullHitListtoQueue(cellsPassingThreshold, phmmIndex, sequenceIndex, thresholdHitSieve0);
-	filterThresholdHitsSieve1(thresholdHitSieve0,  thresholdHitSieve1);
-	filterThresholdHitsSieve2(thresholdHitSieve1, thresholdHitSieve2);
-	filterThresholdHitsSieve3(thresholdHitSieve2, thresholdHitSieve3);
-	filterThresholdHitsSieve4(thresholdHitSieve3, thresholdHitSieve4);
-	writeFilteredHitToMemory(thresholdHitSieve4, hitReportMemory);
-}
+void filterThresholdHitsSieve1(hls::stream<struct TerminatingHitSieve0, 2>& thresholdHitSieve0,
+		hls::stream<struct TerminatingHitSieve1, 2>& thresholdHitSieve1){
+	bool hasSeenTerminator = false;
 
-void appendFullHitListtoQueue(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex, uint32_t sequenceIndex,
-		hls::stream<struct ThresholdHitSieve0>& fullHitListQueue){
-	struct ThresholdHitSieve0 hitSieve0= {.phmmIndex=phmmIndex, .sequenceIndex=sequenceIndex, .groupedHits=cellsPassingThreshold};
-	fullHitListQueue.write_nb(hitSieve0);
-}
+	while(!hasSeenTerminator){
 
-void filterThresholdHitsSieve1(hls::stream<struct ThresholdHitSieve0, 4>& thresholdHitSieve0,
-		hls::stream<struct ThresholdHitSieve1, 4>& thresholdHitSieve1){
-
-	while(!thresholdHitSieve0.empty()){
-		struct ThresholdHitSieve0 inputReport = thresholdHitSieve0.read();
+		//wait for a value on the input stream
+		while(thresholdHitSieve0.empty());
+		hls::print("thit sieve 0 past empty, count $d\n", (int)thresholdHitSieve0.size());
+		struct TerminatingHitSieve0 inputReport = thresholdHitSieve0.read();
 		hitSieve1Loop:for(ap_uint<3> i = 0; i < 4; i++){
-			if(inputReport.groupedHits[i].or_reduce()){
+			if(inputReport.groupedHits[i].or_reduce() || ((i == 3) && (inputReport.terminator== true))){
 				uint8_t groupIndex = i;
-				struct ThresholdHitSieve1 sievedHit= {.phmmIndex=inputReport.phmmIndex, .sequenceIndex=inputReport.sequenceIndex,
-						.hits=inputReport.groupedHits[i], .groupIndex=groupIndex};
-				thresholdHitSieve1.write_nb(sievedHit);
+				bool outputTerminator = (i == 3 && inputReport.terminator);
+				struct TerminatingHitSieve1 hitReport = {inputReport.phmmIndex,	inputReport.sequenceIndex,
+						inputReport.groupedHits[i], groupIndex, outputTerminator};
+				thresholdHitSieve1.write(hitReport);
+				hasSeenTerminator = inputReport.terminator;
 			}
 		}
 	}
 }
 
 
-void filterThresholdHitsSieve2(hls::stream<struct ThresholdHitSieve1>& thresholdHitSieve1,
-	hls::stream<struct ThresholdHitSieve2>& thresholdHitSieve2){
+void filterThresholdHitsSieve2(hls::stream<struct TerminatingHitSieve1, 2>& thresholdHitSieve1,
+	hls::stream<struct TerminatingHitSieve2, 2>& thresholdHitSieve2){
+		bool hasSeenTerminator = false;
 
-	while(!thresholdHitSieve1.empty()){
-		struct ThresholdHitSieve1 inputReport = thresholdHitSieve1.read();
+	while(!hasSeenTerminator){
+
+		//wait for a value on the input stream
+		while(thresholdHitSieve1.empty());
+
+		struct TerminatingHitSieve1 inputReport = thresholdHitSieve1.read();
 		uint16_t reportHitVectorWidth = inputReport.hits.length();
 		hitSieve2Loop:for(ap_uint<3> i = 0; i < 4; i++){
 			ap_uint<THRESHOLD_HIT_SIEVE2_SIZE> hitReportWord = inputReport.hits((reportHitVectorWidth/4) * (i+1) -1, (reportHitVectorWidth)/4*i);
-			if(hitReportWord.or_reduce()){
+			if(hitReportWord.or_reduce() || ((i == 3) && (inputReport.terminator== true))){
+				bool outputTerminator = (i == 3 && inputReport.terminator);
 				uint8_t groupIndex = (inputReport.groupIndex * 4) + i;
-				struct ThresholdHitSieve2 sievedHit = {inputReport.phmmIndex, inputReport.sequenceIndex,
-						hitReportWord, groupIndex};
-				thresholdHitSieve2.write_nb(sievedHit);
+				struct TerminatingHitSieve2 hitReport = {inputReport.phmmIndex,	inputReport.sequenceIndex,
+						hitReportWord, groupIndex, outputTerminator};
+				thresholdHitSieve2.write(hitReport);
+				hasSeenTerminator = inputReport.terminator;
 			}
 		}
 	}
 }
 
 
-void filterThresholdHitsSieve3(hls::stream<struct ThresholdHitSieve2>& thresholdHitSieve2, hls::stream<struct ThresholdHitSieve3>& thresholdHitSieve3){
+void filterThresholdHitsSieve3(hls::stream<struct TerminatingHitSieve2, 2>& thresholdHitSieve2,
+		hls::stream<struct TerminatingHitSieve3, 2>& thresholdHitSieve3){
+	 bool hasSeenTerminator = false;
 
-	while(!thresholdHitSieve2.empty()){
-		struct ThresholdHitSieve2 inputReport = thresholdHitSieve2.read();
+	while(!hasSeenTerminator){
+
+		//wait for a value on the input stream
+		while(thresholdHitSieve2.empty());
+
+		struct TerminatingHitSieve2 inputReport = thresholdHitSieve2.read();
 		uint16_t reportHitVectorWidth = inputReport.hits.length();
 		hitSieve3Loop: for(ap_uint<3> i = 0; i < 4; i++){
 			ap_uint<THRESHOLD_HIT_SIEVE3_SIZE> hitReportWord = inputReport.hits((reportHitVectorWidth/4) * (i+1) -1, (reportHitVectorWidth)/4*i);
-			if(hitReportWord.or_reduce()){
+			if(hitReportWord.or_reduce() || ((i == 3) && (inputReport.terminator== true))){
+				bool outputTerminator = (i == 3 && inputReport.terminator);
 				uint8_t groupIndex = (inputReport.groupIndex*4)+i;
-				struct ThresholdHitSieve3 sievedHit = {inputReport.phmmIndex, inputReport.sequenceIndex, hitReportWord, groupIndex};
-				thresholdHitSieve3.write(sievedHit);
+				struct TerminatingHitSieve3 hitReport = {inputReport.phmmIndex,	inputReport.sequenceIndex,
+						hitReportWord, groupIndex, outputTerminator};
+				thresholdHitSieve3.write(hitReport);
+				hasSeenTerminator = inputReport.terminator;
 			}
 		}
 	}
 }
 
 
-void filterThresholdHitsSieve4(hls::stream<struct ThresholdHitSieve3>& thresholdHitSieve3, hls::stream<struct ThresholdHitSieve4>& thresholdHitSieve4){
+void filterThresholdHitsSieve4(hls::stream<struct TerminatingHitSieve3, 2>& thresholdHitSieve3,
+		hls::stream<struct TerminatingHitSieve4, 32>& thresholdHitSieve4){
+	bool hasSeenTerminator = false;
 
-	while(!thresholdHitSieve3.empty()){
-		struct ThresholdHitSieve3 inputReport = thresholdHitSieve3.read();
+	while(!hasSeenTerminator){
+
+		//wait for a value on the input stream
+		while(thresholdHitSieve3.empty());
+		struct TerminatingHitSieve3 inputReport = thresholdHitSieve3.read();
 		uint16_t reportHitVectorWidth = inputReport.hits.length();
 		hitSieve4Loop: for(ap_uint<3> i = 0; i < 4; i++){
 			ap_uint<THRESHOLD_HIT_SIEVE4_SIZE> hitReportWord = inputReport.hits((reportHitVectorWidth/4) * (i+1) -1, (reportHitVectorWidth)/4*i);
-			if(hitReportWord.or_reduce()){
+			if(hitReportWord.or_reduce() || ((i == 3) && (inputReport.terminator== true))){
+				bool outputTerminator = (i == 3 && inputReport.terminator);
 				uint8_t groupIndex = inputReport.groupIndex*4 + i;
-				struct ThresholdHitSieve4 sievedHit = {inputReport.phmmIndex, inputReport.sequenceIndex, hitReportWord, groupIndex};
-				thresholdHitSieve4.write(sievedHit);
+				struct TerminatingHitSieve4 hitReport = {inputReport.phmmIndex,	inputReport.sequenceIndex,
+						hitReportWord, groupIndex, outputTerminator};
+				thresholdHitSieve4.write(hitReport);
+				hasSeenTerminator = inputReport.terminator;
 			}
 		}
 	}
 }
 
 
-void writeFilteredHitToMemory(hls::stream<struct ThresholdHitSieve4>& thresholdHitSieve4, struct HitReportByGroup *hitReportMemory){
-	hitSieveWriteLoop: while(!thresholdHitSieve4.empty()){
+void writeFilteredHitToMemory(hls::stream<struct TerminatingHitSieve4, 32>& thresholdHitSieve4, struct HitReportByGroup *hitReportMemory){
+	bool hasSeenTerminator = false;
+	hitSieveWriteLoop: while(!hasSeenTerminator){
 		//read the final result and massage it into a HitReportByGroup so the byte alignment works well.
-		struct ThresholdHitSieve4 finalReport = thresholdHitSieve4.read();
-		struct HitReportByGroup byGroupReport = {.phmmIndex = finalReport.phmmIndex, .sequenceIndex = finalReport.sequenceIndex,
-				.groupBits=finalReport.hits, .groupIndex = finalReport.groupIndex};
-		hitReportMemory[numHitReportsSent] = byGroupReport;
-		numHitReportsSent++;
+		struct TerminatingHitSieve4 finalReport = thresholdHitSieve4.read();
+
+		if(finalReport.hits.or_reduce()){
+		struct HitReportByGroup byGroupReport = {finalReport.phmmIndex, finalReport.sequenceIndex,
+				finalReport.hits, finalReport.groupIndex};
+			hitReportMemory[numHitReportsSent] = byGroupReport;
+			numHitReportsSent++;
+		}
+		hasSeenTerminator = finalReport.terminator;
 	}
 }
+
+
 #endif

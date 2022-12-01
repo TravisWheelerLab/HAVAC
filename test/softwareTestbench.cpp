@@ -50,7 +50,7 @@ int main() {
     //generate the sequence and phmm for this test. The sequence will be mutated with a substitution rate specified
     //in the hmmSeqGenerator file
     printf(" Test #%u/%u \n", i, numTests);
-    const uint32_t numSequenceSegments = (rand() % 3) + 5;
+    const uint32_t numSequenceSegments = (rand() % 3) + 1;
     const uint32_t seqLength = NUM_CELL_PROCESSORS * numSequenceSegments;
     printf("generating hmm seq pair...\n");
     fflush(stdout);
@@ -136,7 +136,7 @@ inline std::vector<struct HitReport> invokeHardwareSsv(const uint8_t* sequenceAs
   std::vector<struct HitReport> hitReportList;
 #endif
   const size_t sequenceLengthInSegments = sequenceLength / (NUM_CELL_PROCESSORS);
-  if (sequenceLength % NUM_CELL_PROCESSORS != 0) {i
+  if (sequenceLength % NUM_CELL_PROCESSORS != 0) {
     printf("ERROR: seq length was %zu was not a multiple of num_cell_processors %zu!\n", sequenceLength, NUM_CELL_PROCESSORS);
     fflush(stdout);
     errorCode = -1;
@@ -240,7 +240,7 @@ bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vect
   for (auto& hardwareHit : hardwareSsvHits) {
     //assertion check to make sure the hardware hit actually has reported hit groups.
 #ifdef USE_HIT_SIEVE
-	    if (hardwareHit.groupHits.or_reduce() == 0) {
+	    if (hardwareHit.groupBits.or_reduce() == 0) {
 #else
     if (hardwareHit.groupsPassingThreshold.or_reduce() == 0) {
 #endif
@@ -250,8 +250,8 @@ bool compareSsvHitLists(std::vector<struct HitReport> hardwareSsvHits, std::vect
 
 #ifdef USE_HIT_SIEVE
     for(uint32_t cellIndexInGroup = 0; cellIndexInGroup < HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH; cellIndexInGroup++){
-    	if(hardwareHit.groupedHits[cellIndexInGroup]){
-    		size_t sequencePosition = (hardwareHit.groupIndex * HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH) + (sequencePassIndex * NUM_CELL_PROCESSORS);
+    	if(hardwareHit.groupBits[cellIndexInGroup]){
+    		size_t sequencePosition = (hardwareHit.groupIndex * HIT_REPORT_BY_GROUP_MIN_BIT_WIDTH) + (hardwareHit.sequenceIndex * NUM_CELL_PROCESSORS) + cellIndexInGroup;
     		bool foundMatchingSoftwareHit = false;
     		for(auto& softwareHit: softwareSsvHits){
     			if(softwareHit.phmmPosition = hardwareHit.phmmIndex && softwareHit.sequencePosition == sequencePosition){

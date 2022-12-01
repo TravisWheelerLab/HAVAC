@@ -53,37 +53,40 @@ struct HitReportByGroup{
 };
 
 
-struct ThresholdHitSieve0{
+struct TerminatingHitSieve0{
 	uint32_t phmmIndex;
 	uint32_t sequenceIndex;
 	ap_uint<CELLS_PER_GROUP> groupedHits[NUM_CELL_GROUPS];
+	bool terminator;
 };
-struct ThresholdHitSieve1{
+struct TerminatingHitSieve1{
 	uint32_t phmmIndex;
 	uint32_t sequenceIndex;
 	ap_uint<THRESHOLD_HIT_SIEVE1_SIZE> hits;
 	uint8_t groupIndex;
+	bool terminator;
 };
-
-struct ThresholdHitSieve2{
+struct TerminatingHitSieve2{
 	uint32_t phmmIndex;
 	uint32_t sequenceIndex;
 	ap_uint<THRESHOLD_HIT_SIEVE2_SIZE> hits;
 	uint8_t groupIndex;
+	bool terminator;
 };
-
-struct ThresholdHitSieve3{
+struct TerminatingHitSieve3{
 	uint32_t phmmIndex;
 	uint32_t sequenceIndex;
 	ap_uint<THRESHOLD_HIT_SIEVE3_SIZE> hits;
 	uint8_t groupIndex;
+	bool terminator;
 };
 
-struct ThresholdHitSieve4{
+struct TerminatingHitSieve4{
 	uint32_t phmmIndex;
 	uint32_t sequenceIndex;
 	ap_uint<THRESHOLD_HIT_SIEVE4_SIZE> hits;
 	uint8_t groupIndex;
+	bool terminator;
 };
 
 struct CellResult {
@@ -119,7 +122,7 @@ void HavacMainLoop(uint32_t sequenceLengthInSegments, hls::stream<struct Sequenc
 #ifdef USE_HIT_SIEVE
 void phmmVectorLoop(uint32_t phmmLengthInVectors, struct SequenceSegment currentSequenceSegment, hls::stream<struct PhmmVector,
   PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment, bool isLastSequenceSegment,
-  uint32_t sequenceSegmentIndex, struct HitReportByGroup *hitReportMemory);
+  uint32_t sequenceSegmentIndex, hls::stream<struct TerminatingHitSieve0, 2> &hitSieveStream);
 #else
 void phmmVectorLoop(uint32_t phmmLengthInVectors, struct SequenceSegment currentSequenceSegment, hls::stream<struct PhmmVector,
   PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment, bool isLastSequenceSegment, hls::stream<struct HitReport,
@@ -158,19 +161,19 @@ void setPhmmFromStream(struct PhmmVector& phmmVector, hls::stream<struct PhmmVec
 
 
 #ifdef USE_HIT_SIEVE
-void adjudicateAndWriteHitReport(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex,
-		uint32_t sequenceIndex, struct HitReportByGroup *hitReportMemory);
+void adjudicateAndStreamHitReport(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex,
+		uint32_t sequenceIndex, hls::stream<struct TerminatingHitSieve0, 2> &hitSieveStream, bool isLastPhmmIndex);
 void sieveAndWriteHitReports(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex, uint32_t sequenceIndex,
 	struct HitReportByGroup *hitReportMemory);
 void appendFullHitListtoQueue(ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], uint32_t phmmIndex, uint32_t sequenceIndex,
 		hls::stream<struct ThresholdHitSieve0> &fullHitListQueue);
-void filterThresholdHitsSieve1(hls::stream<struct ThresholdHitSieve0, 4> &thresholdHitSieve0,
-		hls::stream<struct ThresholdHitSieve1, 4> &thresholdHitSieve1);
-void filterThresholdHitsSieve2(hls::stream<struct ThresholdHitSieve1>& thresholdHitSieve1,
-	hls::stream<struct ThresholdHitSieve2>& thresholdHitSieve2);
-void filterThresholdHitsSieve3(hls::stream<struct ThresholdHitSieve2>& thresholdHitSieve2, hls::stream<struct ThresholdHitSieve3>& thresholdHitSieve3);
-void filterThresholdHitsSieve4(hls::stream<struct ThresholdHitSieve3>& thresholdHitSieve3, hls::stream<struct ThresholdHitSieve4>& thresholdHitSieve4);
-void writeFilteredHitToMemory(hls::stream<struct ThresholdHitSieve4>& thresholdHitSieve4, struct HitReportByGroup *hitReportMemory);
+void filterThresholdHitsSieve1(hls::stream<struct TerminatingHitSieve0, 2> &thresholdHitSieve0,
+		hls::stream<struct TerminatingHitSieve1, 2> &thresholdHitSieve1);
+void filterThresholdHitsSieve2(hls::stream<struct TerminatingHitSieve1, 2>& thresholdHitSieve1,
+	hls::stream<struct TerminatingHitSieve2, 2>& thresholdHitSieve2);
+void filterThresholdHitsSieve3(hls::stream<struct TerminatingHitSieve2, 2>& terminatingHitSieve2, hls::stream<struct TerminatingHitSieve3, 2>& thresholdHitSieve3);
+void filterThresholdHitsSieve4(hls::stream<struct TerminatingHitSieve3, 2>& terminatingHitSieve4, hls::stream<struct TerminatingHitSieve4, 32>& thresholdHitSieve4);
+void writeFilteredHitToMemory(hls::stream<struct TerminatingHitSieve4, 32>& thresholdHitSieve4, struct HitReportByGroup *hitReportMemory);
 #else
 // takes the phmm/sequence index, and a threshold pass bit from every cell processor, compresses
 // to a per-group basis, and enqueues a hit report if any of the groups had a hit in them.

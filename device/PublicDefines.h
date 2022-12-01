@@ -8,11 +8,11 @@
 //#define HAVAC_PER_CELL_DATA_TESTING
 
 
-#define USE_HIT_SIEVE
+//#define USE_HIT_SIEVE
 
 #ifdef HAVAC_TESTING
-#define NUM_CELL_GROUPS 4
-#define CELLS_PER_GROUP 512
+#define NUM_CELL_GROUPS 64
+#define CELLS_PER_GROUP 16
 #else
 #define NUM_CELL_GROUPS 4
 #define CELLS_PER_GROUP 2048	//3072
