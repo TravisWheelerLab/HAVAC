@@ -8,6 +8,11 @@ extern "C" {
   #include <p7HmmReader.h>
 }
 
+
+using std::shared_ptr;
+using std::vector;
+using std::tuple;
+
 #define HAVAC_SEQUENCE_BUFFER_GROUP_ID 0
 #define HAVAC_SEQUENCE_LENGTH_GROUP_ID 1
 #define HAVAC_PHMM_BUFFER_GROUP_ID 2
@@ -16,9 +21,11 @@ extern "C" {
 #define HAVAC_HIT_REPORT_LENGTH_GROUP_ID 5
 
 //constructor
-HavacHwClient::HavacHwClient(const uint32_t deviceIndex) {
+HavacHwClient::HavacHwClient(const std::string& xclbinFileSrc, const std::string& havacKernelName, const uint32_t deviceIndex = 0) {
   //identify the device and load the xclbin file.
-  havacDevice = xrt::device(deviceIndex);
+  this->havacDevice = xrt::device(deviceIndex);
+  this->generateKernel(xclbinFileSrc, havacKernelName);
+  this->allocateBuffers();
 }
 
 
@@ -28,52 +35,50 @@ void HavacHwClient::generateKernel(const std::string& xclbinFileSrc, const std::
   }
 
   try {
-    havacUuid = havacDevice->load_xclbin(xclbinFileSrc);
+    this->havacUuid = havacDevice->load_xclbin(xclbinFileSrc);
   }
   catch (const std::exception& e) {
-    std::cerr << "ERROR: HavacHwClient failed to load xclbin file " << xclbinFileSrc << ". does this file exist?\n"<< e.what() << std::endl;
+    std::cerr << "ERROR: HavacHwClient failed to load xclbin file " << xclbinFileSrc << ". does this file exist?\n" << e.what() << std::endl;
     throw;
   }
 
   //now load the kernel with the xclbin we just setup
   try {
-    havacKernel = xrt::kernel(*havacDevice, *havacUuid, havacKernelName);
+    this->havacKernel = xrt::kernel(*havacDevice, *havacUuid, havacKernelName);
   }
   catch (const std::exception& e) {
     std::cerr << "ERROR: HavacHwClient was unable to build the kernel. perhaps the kernel name is wrong?\n" << e.what() << std::endl;
   }
 }
 
-void HavacHwClient::allocateBuffers(const uint32_t sequenceBufferLength, const uint32_t phmmBufferLength,
-  const uint32_t hitReportBufferLength) {
-  assert((uint64_t)sequenceBufferLength <= 4294967295ULL && "Assert fail: sequence buffer length must be less than 4GiB.");
-  assert((uint64_t)phmmBufferLength <= 4294967295ULL && "Assert fail: phmm buffer length must be less than 4GiB.");
+void HavacHwClient::allocateBuffers() {
+  assert((uint64_t)this->sequenceAllocationSizeInBytes <= 4294967295ULL && "Assert fail: sequence buffer length must be less than 4GiB.");
+  assert((uint64_t)this->phmmAllocationSizeInBytes <= 4294967295ULL && "Assert fail: phmm buffer length must be less than 4GiB.");
 
-  int sequenceBankGroup, sequenceLenBankGroup, phmmBankGroup, phmmLenBankGroup, hitReportBankGroup, hitReportLenBankGroup;
+  int sequenceBankGroup, sequenceLenBankGroup, phmmBankGroup, phmmLenBankGroup, hitReportBankGroup;
   try {
     auto sequenceBankGroup = havacKernel->group_id(HAVAC_SEQUENCE_BUFFER_GROUP_ID);
     auto phmmBankGroup = havacKernel->group_id(HAVAC_PHMM_BUFFER_GROUP_ID);
     auto hitReportBankGroup = havacKernel->group_id(HAVAC_HIT_REPORT_BUFFER_GROUP_ID);
-    auto hitReportLenBankGroup = havacKernel->group_id(HAVAC_HIT_REPORT_LENGTH_GROUP_ID);
   }
   catch (std::exception& e) {
     std::cerr << "ERROR: could not generate bank group index for one of the buffers\n" << e.what() << std::endl;
     throw;
   }
   try {
-    sequenceBuffer = xrt::bo(*havacDevice, sequenceBufferLength, sequenceBankGroup);
-    phmmBuffer = xrt::bo(*havacDevice, phmmBufferLength, sequenceBankGroup);
-    hitReportBuffer = xrt::bo(*havacDevice, hitReportBufferLength, hitReportBankGroup);
-    numHitReportsBuffer = xrt::bo(*havacDevice, sizeof(uint32_t), hitReportLenBankGroup);
+    this->sequenceBuffer = xrt::bo(*havacDevice, this->sequenceAllocationSizeInBytes, sequenceBankGroup);
+    this->phmmBuffer = xrt::bo(*havacDevice, this->phmmAllocationSizeInBytes, sequenceBankGroup);
+    this->hitReportBuffer = xrt::bo(*havacDevice, this->hitReportAllocationSizeInBytes, hitReportBankGroup);
   }
   catch (std::exception& e) {
     std::cerr << "ERROR: could not allocate memory for one or more hardware-side buffers\n" << e.what() << std::endl;
     throw;
   }
 }
-void HavacHwClient::writeSequence(const uint8_t* sequenceAsEncodedBytes, const uint32_t sequenceLengthInBytes){
+void HavacHwClient::writeSequence(const uint8_t* sequenceAsEncodedBytes, const uint32_t sequenceLengthInBytes) {
   try {
-    phmmBuffer->write(sequenceAsEncodedBytes, sequenceLengthInBytes, 0);
+    const size_t bufferOffset = 0;
+    phmmBuffer->write(sequenceAsEncodedBytes, sequenceLengthInBytes, bufferOffset);
     phmmBuffer->sync(XCL_BO_SYNC_BO_TO_DEVICE);
   }
   catch (std::exception& e) {
@@ -81,25 +86,28 @@ void HavacHwClient::writeSequence(const uint8_t* sequenceAsEncodedBytes, const u
     throw;
   }
 }
-void HavacHwClient::writePhmm(const uint8_t* phmmAsFlattenedArray, const uint32_t phmmLengthInBytes){
+void HavacHwClient::writePhmm(const int8_t* phmmAsFlattenedArray, const uint32_t phmmLengthInBytes) {
   try {
-    phmmBuffer->write(phmmAsFlattenedArray, phmmLengthInBytes, 0);
+    const size_t bufferOffset = 0;
+    phmmBuffer->write(phmmAsFlattenedArray.get(), phmmLengthInBytes, bufferOffset);
     phmmBuffer->sync(XCL_BO_SYNC_BO_TO_DEVICE);
   }
-  catch(std::exception &e){
-    std::cerr << "ERROR: failed to write phmm to fpga client.\n" << e.what()<< std::endl;
+  catch (std::exception& e) {
+    std::cerr << "ERROR: failed to write phmm to fpga client.\n" << e.what() << std::endl;
     throw;
   }
 }
 
 
 void HavacHwClient::invokeHavacSsvAsync() {
-  
+  //reset the num hits, just in case. this may also help prevent errors.
+  this->numHits = 0;
+
   this->havacRunObject = (*this->havacKernel)(*this->sequenceBuffer, this->sequenceLengthInSegments, *this->phmmBuffer,
-    this->phmmLengthInVectors, *this->hitReportBuffer, *this->numHitReportsBuffer);
+    this->phmmLengthInVectors, *this->hitReportBuffer, this->numHits);
 }
 
-void HavacHwClient::abort(){
+void HavacHwClient::abort() {
   havacRunObject->abort();
 }
 
@@ -112,21 +120,12 @@ ert_cmd_state HavacHwClient::getHwState() {
   }
 }
 
-boost::optional<std::vector<struct HavacHostHitReport>>& HavacHwClient::getHitReportList() {
-  boost::optional<std::vector<struct HavacHostHitReport>> hitReportVector;
-  //get the numHitReports
-  uint32_t numHitReports = 0;
-  try {
-    numHitReportsBuffer->read(&numHitReports, sizeof(uint32_t), 0);
-  }
-  catch (std::exception&) {
-    std::cerr << "ERROR: unable to read the number of hit reports " << std::endl;
-    throw;
-  }
+shared_ptr<vector<HavacHardwareHitReport>> HavacHwClient::getHitReportList() {
+  shared_ptr<HavacHardwareHitReport[]> hitReportVector(new vector<HavacHardwareHitReport>(numHits));
 
-  hitReportVector = std::vector<struct HavacHostHitReport>(numHitReports);
+
   try {
-    hitReportBuffer->read(hitReportVector->data(), sizeof(struct HavacHostHitReport) * numHitReports, 0);
+    hitReportBuffer->read(hitReportVector->data(), sizeof(HavacHardwareHitReport) * this->numHits, 0);
   }
   catch (std::exception&) {
     std::cerr << "ERROR: unable to read hit reports from hardware client" << std::endl;

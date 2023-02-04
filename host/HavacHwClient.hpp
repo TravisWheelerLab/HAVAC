@@ -4,6 +4,8 @@
 // XRT includes
 #include <cstdint>
 #include <string>
+#include <memory>
+#include <tuple>
 
 #include "xrt/xrt_bo.h"
 #include "xrt/xrt_device.h"
@@ -12,18 +14,17 @@
 #include <experimental/xrt_ip.h>
 #include <boost/optional.hpp>
 
+#include "HardwareHitList.hpp"
+
+
 class HavacHwClient {
 public:
-  HavacHwClient(const uint32_t deviceIndex);
+  HavacHwClient(const std::string& xclbinFileSrc, const std::string& havacKernelName, const uint32_t deviceIndex = 0);
   HavacHwClient(HavacHwClient&& hc) = delete;
   HavacHwClient(HavacHwClient& hc) = delete;
 
-  void generateKernel(const std::string& xclbinFileSrc, const std::string& havacKernelName);
-
-  void allocateBuffers(const uint32_t sequenceLengthInBytes, const uint32_t phmmLengthInBytes, const uint32_t hitReportBufferLengthInBytes);
-
-  void writeSequence(const uint8_t *sequenceAsEncodedBytes, const uint32_t sequenceLengthInBytes);
-  void writePhmm(const uint8_t *phmmAsFlattenedArray, const uint32_t phmmLengthInBytes);
+  void writeSequence(const uint8_t* sequenceAsEncodedBytes, const uint32_t sequenceLengthInBytes);
+  void writePhmm(int8_t* phmmAsFlattenedArray, const uint32_t phmmLengthInBytes);
   void invokeHavacSsvAsync();
 
   ert_cmd_state getHwState();
@@ -31,7 +32,7 @@ public:
   void waitForHavacSsvAsync();
   void abort();
 
-  boost::optional<std::vector<struct HavacHostHitReport>>& getHitReportList();
+  std::shared_ptr<std::vector<HavacHardwareHitReport>> getHitReportList();
 
 
 protected:
@@ -46,6 +47,17 @@ protected:
 
   uint32_t sequenceLengthInSegments;
   uint32_t phmmLengthInVectors;
+  uint32_t numHits;
+
+
+  static constexpr uint32_t sequenceAllocationSizeInBytes = 512 * 1024 * 1024 * 8;  //4.0GiB
+  static constexpr uint32_t phmmAllocationSizeInBytes = 512 * 1024 * 1024;         //0.5GiB
+  static constexpr uint32_t hitReportAllocationSizeInBytes = 512 * 1024 * 1024;     //0.5GiB
+
+
+  void generateKernel(const std::string& xclbinFileSrc, const std::string& havacKernelName);
+  void allocateBuffers();
+
 
 };
 
