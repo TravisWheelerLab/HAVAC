@@ -137,15 +137,16 @@ void phmmVectorLoop(uint32_t phmmLengthInVectors, struct SequenceSegment current
 
 HavacPhmmVectorLoop:
   for (uint32_t phmmIndex = 0; phmmIndex < phmmLengthInVectors; phmmIndex++) {
-
+    //https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-pipeline
     #ifdef HAVAC_PER_CELL_DATA_TESTING
     _phmmIndex = phmmIndex;
     #endif
 
-    //https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-pipeline
+	 const uint32_t phmmIndexLocalCopy = phmmIndex;
+
     #pragma HLS PIPELINE II=1
     //create a match score list, i.e., for each cell, what score should they be given from the phmm vector?
-    struct MatchScoreList matchScoreList;
+    MatchScoreList: struct MatchScoreList matchScoreList;
     uint32_t currentPhmmVector;
     // vector of bools where a 1 indicates the the corresponding cell passed its threshold this cycle.
     ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS];
@@ -154,7 +155,7 @@ HavacPhmmVectorLoop:
     #pragma HLS array_partition variable=cellsPassingThreshold type=complete
 
     bool isFirstPhmmIndex, isLastPhmmIndex;
-    isFirstOrLastPhmmVector(phmmIndex, phmmLengthInVectors, isFirstPhmmIndex, isLastPhmmIndex);
+    isFirstOrLastPhmmVector(phmmIndexLocalCopy, phmmLengthInVectors, isFirstPhmmIndex, isLastPhmmIndex);
     setPhmmFromStream(currentPhmmVector, phmmStream);
 
     #ifdef HAVAC_PER_CELL_DATA_TESTING
@@ -172,7 +173,7 @@ HavacPhmmVectorLoop:
     bufferedScoreQueueRead = readScoreFromScoreQueue(scoreQueue, isFirstSequenceSegment, isLastPhmmIndex);
     //send hit data to adjudicate hit
     bool isFinalReport = isLastPhmmIndex;
-    adjudicateAndWriteHitReport(hitReportStream, cellsPassingThreshold, phmmIndex, sequenceSegmentIndex, isFinalReport);
+    adjudicateAndWriteHitReport(hitReportStream, cellsPassingThreshold, phmmIndexLocalCopy, sequenceSegmentIndex, isFinalReport);
   }
 }
 
@@ -297,7 +298,7 @@ void writeHitsToMemory(struct HitReport* hitReportMemory, hls::stream<struct Hit
   while (!terminatorReceived) {
     #pragma HLS PIPELINE II=2
     struct HitReportWithTerminator tempHitReport = hitReportStream.read();
-    #pragma hls aggregate variable=tempHitReport
+    #pragma HLS AGGREGATE variable=tempHitReport
     if (tempHitReport.terminator) {
       terminatorReceived = true;
     }

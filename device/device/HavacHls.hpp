@@ -37,9 +37,12 @@ struct SequenceSegment {
 //    ap_uint<NUM_CELL_PROCESSORS * 2> symbols;
 	SequenceSegmentWord words[NUM_SEQUENCE_SEGMENT_WORDS];
 };
+
 struct PhmmVector {
   ap_uint<8> scores[SCORES_PER_PHMM_VECTOR];
 };
+
+
 struct HitReport {
   uint32_t phmmIndex;
   uint32_t sequenceIndex;
