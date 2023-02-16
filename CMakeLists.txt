@@ -34,6 +34,7 @@ target_sources(havac PRIVATE
 add_executable(havac)
 
 # Link against the required libraries
+#xilinxopencl won't probably re required, but I'm keeping this here for the time being.
 target_link_libraries(havac xilinxopencl xrt_coreutil pthread)
 target_link_libraries(havac PUBLIC FastaVector P7HmmReader)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
