@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+
+
+# Directories
+Havac3Solution
+FastaVector
+P7HmmReader
+.vscode
+.settings
