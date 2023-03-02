@@ -1,12 +1,15 @@
 #ifndef HAVAC_HW_CLIENT_HPP
 #define HAVAC_HW_CLIENT_HPP
 
-// XRT includes
+#include "types/HardwareHitReport.hpp"
+#include "HitVerifier.hpp"
 #include <cstdint>
 #include <string>
 #include <memory>
 #include <tuple>
+#include <vector>
 
+// XRT includes
 #include "xrt/xrt_bo.h"
 #include "xrt/xrt_device.h"
 #include "xrt/xrt_kernel.h"
@@ -14,8 +17,8 @@
 #include <experimental/xrt_ip.h>
 #include <boost/optional.hpp>
 
-#include "HardwareHitList.hpp"
-
+using std::shared_ptr;
+using std::vector;
 
 class HavacHwClient {
 public:
@@ -23,17 +26,15 @@ public:
   HavacHwClient(HavacHwClient&& hc) = delete;
   HavacHwClient(HavacHwClient& hc) = delete;
 
-  void writeSequence(const uint8_t* sequenceAsEncodedBytes, const uint32_t sequenceLengthInBytes);
-  void writePhmm(int8_t* phmmAsFlattenedArray, const uint32_t phmmLengthInBytes);
+  void writeSequence(shared_ptr<vector<uint8_t>> compressedSequence);
+  void writePhmm(shared_ptr<vector<int8_t>> phmmAsFlattenedArray);
   void invokeHavacSsvAsync();
 
   ert_cmd_state getHwState();
+  ert_cmd_state waitForHavacSsvAsync(const std::chrono::milliseconds& timeout = std::chrono::milliseconds{ 0 });
+  ert_cmd_state abort();
 
-  void waitForHavacSsvAsync();
-  void abort();
-
-  std::shared_ptr<std::vector<HavacHardwareHitReport>> getHitReportList();
-
+  std::shared_ptr<vector<HardwareHitReport>> getHitReportList();
 
 protected:
   boost::optional<xrt::device> havacDevice;
@@ -49,16 +50,12 @@ protected:
   uint32_t phmmLengthInVectors;
   uint32_t numHits;
 
-
-  static constexpr uint32_t sequenceAllocationSizeInBytes = 512 * 1024 * 1024 * 8;  //4.0GiB
-  static constexpr uint32_t phmmAllocationSizeInBytes = 512 * 1024 * 1024;         //0.5GiB
-  static constexpr uint32_t hitReportAllocationSizeInBytes = 512 * 1024 * 1024;     //0.5GiB
-
+  static const uint64_t sequenceAllocationSizeInBytes = 512UL * 1024UL * 1024UL * 8UL;  //4.0GiB
+  static const uint32_t phmmAllocationSizeInBytes = 512 * 1024 * 1024;         //0.5GiB
+  static const uint32_t hitReportAllocationSizeInBytes = 512 * 1024 * 1024;     //0.5GiB
 
   void generateKernel(const std::string& xclbinFileSrc, const std::string& havacKernelName);
   void allocateBuffers();
-
-
 };
 
 #endif
