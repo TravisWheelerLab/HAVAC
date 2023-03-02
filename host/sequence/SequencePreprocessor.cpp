@@ -44,10 +44,11 @@ void SequencePreprocessor::setCompressedSequence(struct FastaVector* fastaVector
 
     //mask away whatever was there in the compressed sequence
     const uint8_t bitmask = ~(0x3 << bitIndexInByte);
-    (*this->compressedSequenceBuffer)[byteInCompressedSequence] &= bitmask;
+    this->compressedSequenceBuffer->data()[byteInCompressedSequence] &= bitmask;
 
+    //write the new symbol into the data buffer
     const uint8_t shiftedCompressedSymbol = compressedSymbol << bitIndexInByte;
-    (*this->compressedSequenceBuffer)[byteInCompressedSequence] = shiftedCompressedSymbol;
+    this->compressedSequenceBuffer->data()[byteInCompressedSequence] |= shiftedCompressedSymbol;
   }
 }
 
@@ -63,9 +64,10 @@ uint8_t SequencePreprocessor::getCompressedSymbol(const char originalSymbol) {
   case 't': case 'T': return 3;
   default:
     //if it wasn't one of the common symbols, it'll need some amount of randomization
+    //here, we support ambiguity codes that are ambiguous between 2 nucleotides
     const uint8_t randMod2 = rand() % 2;
     switch (originalSymbol) {
-    case 'r': case 'R': return randMod2 << 1;     //A or G (0 or 2)
+    case 'r': case 'R': return randMod2 * 2;      //A or G (0 or 2)
     case 'y': case 'Y': return randMod2 << 1 + 1; //C or T (1 or 3)
     case 's': case 'S': return randMod2 + 1;      //C or G (1 or 2)
     case 'w': case 'W': return randMod2 * 3;      //A or T (0 or 3)
