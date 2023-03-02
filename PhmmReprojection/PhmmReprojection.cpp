@@ -67,7 +67,8 @@ float findThreshold256ScalingFactor(double p, double mu, double lambda, double m
   return scaleFactor;
 }
 
-void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue) {
+
+void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue, int8_t* outputArray) {
   //there's some log/exp tricks here, the naive approach to rescaling these values is to use the formula:
   // scaledScore = eslCONST_LOG2 *log(exp(-1* baseScore)/backgroundProbability) * scaleFactor;
   // where backgroundProbability = .25, therefore
@@ -95,7 +96,6 @@ void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue) {
 
   for (size_t i = 0; i < alphabetCardinality * modelLength; i++) {
     //phmm->model.matchEmissionScores[i] = eslCONST_LOG2 * log(exp(-1* phmm->model.matchEmissionScores[i])/backgroundProbability) * scaleFactor;
-    phmm->model.matchEmissionScores[i] = scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmm->model.matchEmissionScores[i]);
+    outputArray[i] = scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmm->model.matchEmissionScores[i]);
   }
-
 }
