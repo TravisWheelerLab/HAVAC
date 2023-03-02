@@ -40,3 +40,4 @@ P7HmmReader
 .vscode
 .settings
 build
+CMakeFiles
