@@ -77,8 +77,5 @@ private:
 
   const std::string havacXclbinFileSrc = "impl/havac.xclbin";
   const std::string havacKernelName = "havacKernel";
-
-  bool isRunning();
-  void generateProjectedPhmmMatchScores(const float pValue = 0.05f);
 };
 #endif
