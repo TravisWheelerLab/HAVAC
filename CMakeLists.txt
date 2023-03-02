@@ -23,8 +23,6 @@ endif()
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 
-# Set the C standard
-set(CMAKE_C_STANDARD 11)
 
 # Add directories to search for header files
 include_directories(${SOURCE_DIR} /opt/xilinx/xrt/include /usr/local/include)
