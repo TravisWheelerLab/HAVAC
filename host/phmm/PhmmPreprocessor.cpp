@@ -18,9 +18,12 @@ PhmmPreprocessor::PhmmPreprocessor(std::shared_ptr<P7HmmList> phmmList, const fl
   //and sets the data for the phmmData member variable.
   uint32_t currentIndexIntoProcessedPhmmData = 0;
   for(uint32_t i = 0; i < phmmList->count; i++){
+    int8_t* currentPointerIntoProjectedPhmmData = this->phmmData->data() + currentIndexIntoProcessedPhmmData;
+    p7HmmProjectForThreshold256(&phmmList->phmms[i], desiredPvalue, currentPointerIntoProjectedPhmmData);
+
     const uint32_t thisModelLength = phmmList->phmms[i].header.modelLength;
-    p7HmmProjectForThreshold256(&phmmList->phmms[i], desiredPvalue, this->phmmData->data());
-    currentIndexIntoProcessedPhmmData += thisModelLength * BYTES_PER_PHMM_VECTOR;
+    const uint32_t thisModelLengthInBytes = thisModelLength * BYTES_PER_PHMM_VECTOR;
+    currentIndexIntoProcessedPhmmData += thisModelLengthInBytes;
   }
 }
 
