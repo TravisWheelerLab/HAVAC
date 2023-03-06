@@ -9,16 +9,16 @@
 //private
 
 
-HitVerifier::HitVerifier(shared_ptr<FastaVector>& fastaVector, shared_ptr<P7HmmList>& phmmList)
+HitVerifier::HitVerifier(shared_ptr<FastaVector> fastaVector, shared_ptr<P7HmmList> phmmList)
   :fastaVector(fastaVector),
-  phmmList(phmmList) {
+  phmmList(phmmList){
   this->ssvCellScores = std::make_shared<vector<float>>(SSV_PHMM_VERIFICATION_RANGE);
 }
 
 
 
 shared_ptr<vector<VerifiedHit>> HitVerifier::verify(shared_ptr<vector<HardwareHitReport>> hits) {
-  shared_ptr<vector<VerifiedHit>> verifiedHitList = shared_ptr<vector<VerifiedHit>>();
+  shared_ptr<vector<VerifiedHit>> verifiedHitList = std::make_shared<vector<VerifiedHit>>();
   for (const auto& hit : *hits) {
     verifyHit(hit, verifiedHitList);
   }
@@ -58,9 +58,9 @@ std::tuple<uint32_t, uint32_t> HitVerifier::getPhmmIndexFromPosition(const Hardw
     throw std::logic_error("global phmm start position was greater than the hit phmm index, which should never happen.");
   }
 
-  uint32_t localPhmmHitIndex = hardwareHitReport.phmmPosition - globalPhmmStartPosition;
+  uint32_t localPhmmHitPosition = hardwareHitReport.phmmPosition - globalPhmmStartPosition;
 
-  return std::make_pair((uint32_t)hitLocatedInPhmmIndex, localPhmmHitIndex);
+  return std::make_pair((uint32_t)hitLocatedInPhmmIndex, localPhmmHitPosition);
 }
 
 //can throw std::domain_error
@@ -77,11 +77,14 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
   uint32_t localPhmmSsvLength = localSsvPhmmEndPosition - localSsvPhmmStartPosition;
 
   //now we have enough info to get the phmm data needed for the local ssv verification. Now, 
-  //figure out which sequence segments might be in the range.
+  //figure out which sequence segments might be in the range. 
+  //this represents the leftmost cell that could've caused the hit.
   uint32_t sequenceHitRangePosition = (hardwareHitReport.sequencePassIndex * NUM_CELL_PROCESSORS) +
     (hardwareHitReport.sequenceGroupIndex * CELLS_PER_GROUP);
-  //this hit position is the left-most cell that could've caused the hit.
+
+  //total length of all the sequences, concatenated together.
   uint32_t totalSequenceAggregatedLength = this->fastaVector->metadata.data[this->fastaVector->metadata.count - 1].sequenceEndPosition;
+  //leftmost cell in the DP-matrix to perform reference SSV on, clamped to zero (aka, a ReLU)
   uint32_t sequencePossibleStartPosition = std::max(0L, (int64_t)sequenceHitRangePosition - (int64_t)SSV_VERIFICATION_PRIOR_FLANK_RANGE);
   //this end position adds CELLS_PER_GROUP, since any cell in the group could've caused the hit.
   uint32_t sequencePossibleEndPosition = std::min(totalSequenceAggregatedLength,
@@ -95,8 +98,10 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
     uint32_t thisSequenceEndPosition = this->fastaVector->metadata.data[sequenceIndex].sequenceEndPosition;
 
     //if there is overlap, it's worth checking for an actual hit.
-    bool sequenceOverlapsWithPossibleHit = (thisSequenceStartPosition <= sequencePossibleEndPosition) &&
+    bool sequenceOverlapsWithPossibleHit = 
+    (thisSequenceStartPosition <= sequencePossibleEndPosition) &&
       (thisSequenceEndPosition > sequencePossibleStartPosition);
+    
     if (sequenceOverlapsWithPossibleHit) {
 
       //these sequences overlap, the hit might be in this sequence. 
@@ -111,6 +116,7 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
   }
 }
 
+//TODO: debug-check this, and make sure the phmm scaling is right, we might have to rescale
 void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber, const uint32_t localSsvPhmmStartPosition,
   const uint32_t localPhmmSsvLength, const uint32_t ssvSequenceRangeBegin, const uint32_t ssvSequenceRangeEnd) {
 
