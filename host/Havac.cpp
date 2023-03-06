@@ -8,7 +8,7 @@
 #include <exception>
 
 Havac::Havac(const uint32_t deviceIndex)
-  :deviceIndex(deviceIndex){
+  :deviceIndex(deviceIndex) {
   this->hwClient = shared_ptr<HavacHwClient>(new HavacHwClient(this->havacXclbinFileSrc, this->havacKernelName, deviceIndex));
   this->fastaVector = shared_ptr<FastaVector>(new FastaVector);
   this->p7HmmList = shared_ptr<P7HmmList>(new P7HmmList);
@@ -35,8 +35,7 @@ void Havac::loadPhmm(const std::string phmmSrc, const float desiredPValue) {
     throw std::runtime_error("Phmm file was not formatted correctly.");
   }
 
-  shared_ptr<PhmmPreprocessor> phmmPreprocessor =
-    shared_ptr<PhmmPreprocessor>(new PhmmPreprocessor(this->p7HmmList, desiredPValue));
+  shared_ptr<PhmmPreprocessor> phmmPreprocessor = std::make_shared<PhmmPreprocessor>(this->p7HmmList, desiredPValue);
 
   shared_ptr<vector<int8_t>> phmmDataPtr = phmmPreprocessor->getProcessedPhmmData();
 
@@ -57,7 +56,7 @@ void Havac::loadSequence(const std::string fastaSrc) {
   }
 
   shared_ptr<SequencePreprocessor> sequencePreprocessor =
-    shared_ptr<SequencePreprocessor>(new SequencePreprocessor(this->fastaVector.get()));
+    std::make_shared<SequencePreprocessor>(this->fastaVector.get());
 
 
   hwClient->writeSequence(sequencePreprocessor->getCompressedSequenceBuffer());
@@ -90,16 +89,14 @@ void Havac::abortHardwareClient() {
 }
 
 shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
-  shared_ptr<HitVerifier> hitVerifier(new HitVerifier(this->fastaVector, this->p7HmmList));
   shared_ptr<vector<HardwareHitReport>> unverifiedHitList = this->hwClient->getHitReportList();
+  shared_ptr<HitVerifier> hitVerifier = std::make_shared<HitVerifier>(this->fastaVector,
+    this->p7HmmList, this->projectedPhmmMatchScores);
+    
   return hitVerifier->verify(unverifiedHitList);
 }
 
 
 ert_cmd_state Havac::currentHardwareState() {
   return hwClient->getHwState();
-}
-
-bool Havac::isRunning() {
-  return this->currentHardwareState() == ERT_CMD_STATE_RUNNING;
 }
