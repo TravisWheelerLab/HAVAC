@@ -133,8 +133,8 @@ shared_ptr<vector<HardwareHitReport>> HavacHwClient::getHitReportList() {
   if (this->numHits < 0) {
     throw std::logic_error("number of hits was not initialized, did the hardare fail to run?");
   }
-  shared_ptr<vector<HardwareHitReport>> hitReportList = std::make_shared<vector<HardwareHitReport>>(numHits);
-  // shared_ptr<HavacHardwareHitReport[]> hitReportList(new HavacHardwareHitReport[numHits]);
+  shared_ptr<vector<HardwareHitReport>> hitReportList =
+    std::make_shared<vector<HardwareHitReport>>(numHits);
 
   try {
     hitReportBuffer->read(hitReportList->data(), sizeof(HardwareHitReport) * this->numHits, 0);
