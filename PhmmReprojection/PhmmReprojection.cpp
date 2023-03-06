@@ -95,6 +95,10 @@ float generateScoreMultiplierForPhmmScore(const struct P7Hmm *const phmm, const 
   return scoreMultiplier;
 }
 
+inline float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier){
+  return scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmmScore);
+}
+
 void p7HmmProjectForThreshold256(const struct P7Hmm const* phmm, const float desiredPValue, int8_t* outputArray) {
 
   float modelLength = phmm->header.modelLength;

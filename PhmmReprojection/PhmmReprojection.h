@@ -15,6 +15,8 @@ extern "C" {
 float generateScoreMultiplierForPhmmScore(const struct P7Hmm* const phmm, const float desiredPValue);
 
 
+float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier);
+
 /// @brief projects the scores inside the given phmm such that an accumulated score of 256 represents a hit at
 ///     the given p-value. the phmm is not modified in this function. Instead, the projected score are used to
 ///     populate the outputArray 
