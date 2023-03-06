@@ -68,7 +68,7 @@ float findThreshold256ScalingFactor(double p, double mu, double lambda, double m
 }
 
 
-void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue, int8_t* outputArray) {
+float generateScoreMultiplierForPhmmScore(const struct P7Hmm *const phmm, const float desiredPValue){
   //there's some log/exp tricks here, the naive approach to rescaling these values is to use the formula:
   // scaledScore = eslCONST_LOG2 *log(exp(-1* baseScore)/backgroundProbability) * scaleFactor;
   // where backgroundProbability = .25, therefore
@@ -92,6 +92,13 @@ void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue, int8_t
 
   const float scoreMultiplier = eslCONST_LOG2 * scaleFactor * -1.0f;
 
+  return scoreMultiplier;
+}
+
+void p7HmmProjectForThreshold256(const struct P7Hmm const* phmm, const float desiredPValue, int8_t* outputArray) {
+
+  float modelLength = phmm->header.modelLength;
+  float scoreMultiplier = generateScoreMultiplierForPhmmScore(phmm, desiredPValue);
   uint32_t alphabetCardinality = p7HmmGetAlphabetCardinality(phmm);
 
   for (size_t i = 0; i < alphabetCardinality * modelLength; i++) {
