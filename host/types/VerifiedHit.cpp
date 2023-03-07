@@ -1,5 +1,5 @@
 #include "VerifiedHit.hpp"
-#include <format>
+#include <sstream>
 
 VerifiedHit::VerifiedHit()
   :sequencePosition(0), sequenceIndex(0), phmmPosition(0), phmmIndex(0) {
@@ -12,6 +12,8 @@ VerifiedHit::VerifiedHit(uint64_t sequencePosition, uint32_t sequenceIndex,
 }
 
 std::string VerifiedHit::toString() {
-  return std::format("sequence #{}, position {}; phmm #{}, position {}", this->sequenceIndex,
-    this->sequencePosition, this->phmmIndex, this->phmmPosition);
+  std::stringstream stringStream;
+  stringStream << "sequence $" << this->sequenceIndex << ", position "<< this->sequencePosition <<
+    "; phmm #"<< this->phmmIndex << " position "<< this->phmmPosition;
+  return stringStream.str();
 }
