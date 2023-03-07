@@ -91,8 +91,8 @@ void Havac::abortHardwareClient() {
 shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
   shared_ptr<vector<HardwareHitReport>> unverifiedHitList = this->hwClient->getHitReportList();
   shared_ptr<HitVerifier> hitVerifier = std::make_shared<HitVerifier>(this->fastaVector,
-    this->p7HmmList, this->projectedPhmmMatchScores);
-    
+    this->p7HmmList);
+
   return hitVerifier->verify(unverifiedHitList);
 }
 
