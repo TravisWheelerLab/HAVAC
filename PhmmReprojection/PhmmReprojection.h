@@ -27,6 +27,6 @@ float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMul
 /// @param phmm model to project the scores into int8_t space.
 /// @param desiredPValue The p value required to generate a score of 256, thus generating a hit.
 /// @param outputArray flattened array that will contain the projected scores from the phmm.
-void p7HmmProjectForThreshold256(const struct P7Hmm const* phmm, const float desiredPValue, int8_t* outputArray);
+void p7HmmProjectForThreshold256(const struct P7Hmm* const phmm, const float desiredPValue, int8_t* outputArray);
 
 #endif

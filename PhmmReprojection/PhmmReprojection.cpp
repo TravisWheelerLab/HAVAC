@@ -49,7 +49,7 @@ float findThreshold256ScalingFactor(double p, double mu, double lambda, double m
   float nStateEscapePenalty = logf(3.0f / (float)(maxLength + 3));  //penalty for escaping the n or c states (increases by 1 every time seq len doubles)
   float bStateToKthMStatePenalty = logf(2.0f / ((float)modelLength * (float)(modelLength + 1)));  //penalty for transition from b to kth 'm' option (msubk)
   float transitionEToC = logf(1.0f / 2);
-  float coreModelAdjustment = (nStateEscapePenalty + nStateLoopPenaltyTotal + 
+  float coreModelAdjustment = (nStateEscapePenalty + nStateLoopPenaltyTotal +
     nStateEscapePenalty + bStateToKthMStatePenalty + transitionEToC);
 
   float backgroundLoopProbability = (float)maxLength / (float)(maxLength + 1); //background loop probability
@@ -68,7 +68,7 @@ float findThreshold256ScalingFactor(double p, double mu, double lambda, double m
 }
 
 
-float generateScoreMultiplierForPhmmScore(const struct P7Hmm *const phmm, const float desiredPValue){
+float generateScoreMultiplierForPhmmScore(const struct P7Hmm* const phmm, const float desiredPValue) {
   //there's some log/exp tricks here, the naive approach to rescaling these values is to use the formula:
   // scaledScore = eslCONST_LOG2 *log(exp(-1* baseScore)/backgroundProbability) * scaleFactor;
   // where backgroundProbability = .25, therefore
@@ -95,11 +95,11 @@ float generateScoreMultiplierForPhmmScore(const struct P7Hmm *const phmm, const 
   return scoreMultiplier;
 }
 
-inline float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier){
+inline float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier) {
   return scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmmScore);
 }
 
-void p7HmmProjectForThreshold256(const struct P7Hmm const* phmm, const float desiredPValue, int8_t* outputArray) {
+void p7HmmProjectForThreshold256(const struct P7Hmm* const phmm, const float desiredPValue, int8_t* outputArray) {
 
   float modelLength = phmm->header.modelLength;
   float scoreMultiplier = generateScoreMultiplierForPhmmScore(phmm, desiredPValue);
