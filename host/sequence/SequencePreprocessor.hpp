@@ -46,6 +46,11 @@ private:
   uint32_t compressedSequenceLengthInBytes;
   shared_ptr<vector<uint8_t>> compressedSequenceBuffer;
 
+  /// @brief compresses the sequence in the given fastaVector into 2-bit symbol encodings.
+  ///     this function writes the compressed sequence to compressedSequenceBuffer, which
+  ///     is allocated in the class's constructor. This will compress all sequence in the fasta
+  ///     and concatenate them together.
+  /// @param fastaVector struct containing the sequence to compress.
   void setCompressedSequence(struct FastaVector* fastaVector);
   uint8_t getCompressedSymbol(const char originalSymbol);
 };
