@@ -105,7 +105,7 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
       //ssvSequenceRangeEnd is exclusive (this value may be out of bounds)
       const uint32_t ssvSequenceRangeEnd = std::min(thisSequenceEndPosition, sequencePossibleEndPosition);
 
-      this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmHitPosition, 
+      this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmHitPosition,
         ssvSequenceRangeBegin, ssvSequenceRangeEnd, desiredPValue, verifiedHitList);
     }
   }
@@ -151,9 +151,13 @@ void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, 
       float projectedPhmmMatchScore = projectPhmmScoreWithMultiplier(unprojectedMatchScore, ssvScoreMultiplier);
       int_fast16_t matchScoreAsInt = projectedPhmmMatchScore;
       accumulatedScore += matchScoreAsInt;
-      //godbold suggests that (on x86 GCC) if the threshold check comes before the saturation check, we won't have any branches
-      foundThresholdHitOnDiagonal |= accumulatedScore > SSV_THRESHOLD;
-      if (accumulatedScore < 0) {
+
+      //the following method of saturated addition and threshold checking should cause
+      //no branching instructions on x86 GCC with -03 according to CompilerExplorer
+      // first, we check for a threshold hit, and OR it into the boolean. Then,
+      // we reset on either underflow or overflow
+      foundThresholdHitOnDiagonal |= accumulatedScore >= 256;
+      if (accumulatedScore < 0 || accumulatedScore >= 256) {
         accumulatedScore = 0;
       }
     }
