@@ -1,9 +1,9 @@
 #include "hmmSeqGenerator.h"
 extern "C" {
-#include "../../P7HmmReader/src/p7HmmReader.h"
-#include "../../P7HmmReader/src/p7ProfileHmm.h"
-#include "../../P7HmmReader/src/p7HmmReaderLog.h"
-#include "../../FastaVector/src/FastaVector.h"
+  #include "../../P7HmmReader/src/p7HmmReader.h"
+  #include "../../P7HmmReader/src/p7ProfileHmm.h"
+  #include "../../P7HmmReader/src/p7HmmReaderLog.h"
+  #include "../../FastaVector/src/FastaVector.h"
 }
 //#include <p7HmmReader.h>
 //#include <p7ProfileHmm.h>
@@ -38,7 +38,7 @@ struct HmmSeqPair generateRandomHmmSeqPair(const uint32_t seqLength) {
   struct HmmSeqPair hmmSeqPair;
   hmmSeqPair.sequenceLength = seqLength;
   hmmSeqPair.sequence = (char*)malloc(seqLength + 1); //alloc an additiona byte for null terminator
-  if(hmmSeqPair.sequence == NULL){
+  if (hmmSeqPair.sequence == NULL) {
     printf("ALLOCATION FAILURE: could not allocate memory for sequence in hmmSeqPair\n");
   }
   printf("generating randomly assigned sequence w/ esl...\n");
@@ -58,6 +58,33 @@ struct HmmSeqPair generateRandomHmmSeqPair(const uint32_t seqLength) {
 
   return hmmSeqPair;
 }
+
+
+
+void generateRandomHmmSeqPairToFiles(const uint32_t seqLength, const char* seqSrc, const char* phmmSrc) {
+  //initialize the RNG seed
+  srand(time(0));
+  char* sequence = (char*)malloc(seqLength + 1); //alloc an additiona byte for null terminator
+  if (sequence == NULL) {
+    printf("ALLOCATION FAILURE: could not allocate memory for sequence in hmmSeqPair\n");
+  }
+  printf("generating randomly assigned sequence w/ esl...\n");
+  fflush(stdout);
+  randomlyAssignSequence(sequence, seqLength);
+  writeSequenceToFasta(sequence, seqSrc);
+  printf("generating hmm from sequence...\n");
+  fflush(stdout);
+  generateHmmFromFasta(seqSrc, phmmSrc);
+  printf("mutating sequence with %f sub rate\n", sequenceMutationSubProbability);
+  fflush(stdout);
+  mutateSequence(sequence, seqLength, sequenceMutationSubProbability);
+  printf("rewriting mutated sequence to fasta\n");
+  writeSequenceToFasta(sequence, seqSrc);
+  fflush(stdout);
+  hmmSequenceGeneratorCleanupTempFiles();
+
+}
+
 
 
 void randomlyAssignSequence(char* sequence, const uint32_t seqLength) {
@@ -98,31 +125,31 @@ void generateHmmFromFasta(const char* fastaFileSrc, const char* outputHmmFileSrc
 }
 
 struct P7HmmList* readHmm(const char* outputHmmFileSrc) {
-  struct P7HmmList *phmmList = (struct P7HmmList*)malloc(sizeof(struct P7HmmList));
-  if(phmmList == NULL){
+  struct P7HmmList* phmmList = (struct P7HmmList*)malloc(sizeof(struct P7HmmList));
+  if (phmmList == NULL) {
     printf("Error: could not allocate memory for P7HmmList struct\n");
     exit(5);
   }
   printf("invoking readP7Hmm\n");
   enum P7HmmReturnCode rc = readP7Hmm(outputHmmFileSrc, phmmList);
 
-  if (rc != p7HmmSuccess){
+  if (rc != p7HmmSuccess) {
     printf("ERROR: could not read phmm file, returned code %i\n", rc);
     fflush(stdout);
     exit(4);
   }
-  else{
-	  printf("\nreadP7Hmm finished\n");
-	    fflush(stdout);
+  else {
+    printf("\nreadP7Hmm finished\n");
+    fflush(stdout);
   }
   return phmmList;
 }
 
 
-void mutateSequence(char* sequence, uint32_t sequenceLength, float probability){
+void mutateSequence(char* sequence, uint32_t sequenceLength, float probability) {
   for (uint32_t i = 0; i < sequenceLength; i++) {
     double randProb = (double)rand() / (double)RAND_MAX;
-    if(randProb < probability){
+    if (randProb < probability) {
       sequence[i] = nucs[rand() % 4];
     }
   }
