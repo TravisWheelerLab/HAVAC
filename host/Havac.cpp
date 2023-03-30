@@ -1,14 +1,14 @@
 #include "Havac.hpp"
 #include "../PhmmReprojection/PhmmReprojection.h"
-#include "exceptions/FileReadException.hpp"
 #include "phmm/PhmmPreprocessor.hpp"
 #include "sequence/SequencePreprocessor.hpp"
 
 #include <stdexcept>
 #include <exception>
 
-Havac::Havac(const uint32_t deviceIndex)
-  :deviceIndex(deviceIndex) {
+Havac::Havac(const uint32_t deviceIndex, const float requiredPValue = 0.05f)
+  :deviceIndex(deviceIndex),
+  requiredPValue(requiredPValue) {
   this->hwClient = shared_ptr<HavacHwClient>(new HavacHwClient(this->havacXclbinFileSrc, this->havacKernelName, deviceIndex));
   this->fastaVector = shared_ptr<FastaVector>(new FastaVector);
   this->p7HmmList = shared_ptr<P7HmmList>(new P7HmmList);
@@ -25,7 +25,7 @@ Havac::~Havac() {
 }
 
 
-void Havac::loadPhmm(const std::string phmmSrc, const float desiredPValue) {
+void Havac::loadPhmm(const std::string phmmSrc) {
 
   enum P7HmmReturnCode rc = readP7Hmm(phmmSrc.c_str(), this->p7HmmList.get());
   if (rc == p7HmmAllocationFailure) {
@@ -35,7 +35,7 @@ void Havac::loadPhmm(const std::string phmmSrc, const float desiredPValue) {
     throw std::runtime_error("Phmm file was not formatted correctly.");
   }
 
-  shared_ptr<PhmmPreprocessor> phmmPreprocessor = std::make_shared<PhmmPreprocessor>(this->p7HmmList, desiredPValue);
+  shared_ptr<PhmmPreprocessor> phmmPreprocessor = std::make_shared<PhmmPreprocessor>(this->p7HmmList, this->requiredPValue);
 
   shared_ptr<vector<int8_t>> phmmDataPtr = phmmPreprocessor->getProcessedPhmmData();
 
@@ -93,7 +93,7 @@ shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
   shared_ptr<HitVerifier> hitVerifier = std::make_shared<HitVerifier>(this->fastaVector,
     this->p7HmmList);
 
-  return hitVerifier->verify(unverifiedHitList);
+  return hitVerifier->verify(unverifiedHitList, requiredPValue);
 }
 
 

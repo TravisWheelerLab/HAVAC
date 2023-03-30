@@ -23,7 +23,9 @@ public:
   /// @param deviceIndex index of the FPGA device, this should be 0 unless multiple cards are installed.
   ///   If this doesn't work, try iterating different deviceIndexes. Unfortunately, the XRT docs doesn't
   ///   speficy anything further, sorry.
-  Havac(const uint32_t deviceIndex = 0);
+  /// @param requiredPValue p value that would cause a hit to be registered. If the p value needs to be changed for some reason,
+  /// just make another Havac object
+  Havac(const uint32_t deviceIndex = 0, const float requiredPValue = 0.05f);
   Havac(Havac&& havac) = delete;
   Havac(Havac& havac) = delete;
   ~Havac();
@@ -34,8 +36,7 @@ public:
 
   /// @brief load the phmm from the given file src to the hardware client
   /// @param phmmSrc location of file to read
-  /// @param desiredPValue p value that would cause a hit to be registered
-  void loadPhmm(const std::string phmmSrc, const float desiredPValue = 0.05f);
+  void loadPhmm(const std::string phmmSrc);
 
   /// @brief run the HAVAC hardware client synchronously, and return when finished
   void runHardwareClient();
@@ -72,6 +73,7 @@ private:
   shared_ptr<P7HmmList> p7HmmList;
   shared_ptr<int8_t[]> projectedPhmmMatchScores;
   uint32_t deviceIndex;
+  float requiredPValue;
   bool phmmLoadedToDevice = false;
   bool sequenceLoadedToDevice = false;
 
