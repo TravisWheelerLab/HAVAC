@@ -1,6 +1,6 @@
 #include "Ssv.hpp"
+#include "../../../PhmmReprojection/PhmmReprojection.h"
 #include <cstring>
-#include "../../PhmmReprojection/PhmmReprojection.h"
 
 
 shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
@@ -44,11 +44,11 @@ shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
 
       //now, handle the first cell in the row. it should be impossible to generate a hit here, 
       // as it can't ever accumulate enough score for a hit yet.
-      float matchScoreFromPhmmFile = phmmList->phmms[0].model.matchEmissionScores[symbolEncoding];
-      int8_t projectedMatchScore = projectPhmmScoreWithMultiplier(matchScoreFromPhmmFile, scoreMultiplier);
+      matchScoreFromPhmmFile = phmmList->phmms[0].model.matchEmissionScores[symbolEncoding];
+      projectedMatchScore = projectPhmmScoreWithMultiplier(matchScoreFromPhmmFile, scoreMultiplier);
 
-      uint8_t result = projectedMatchScore >= 0 ? projectedMatchScore : 0;
-      cellScores->data()[0] = result;
+      cellSumResult = projectedMatchScore >= 0 ? projectedMatchScore : 0;
+      cellScores->data()[0] = cellSumResult;
     }
   }
 
