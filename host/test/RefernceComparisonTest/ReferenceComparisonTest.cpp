@@ -1,14 +1,14 @@
 #include "ReferenceComparisonTest.hpp"
-#include "../Havac.hpp"
+#include "../../Havac.hpp"
 #include "Ssv.hpp"
-#include "../../test/generator/hmmSeqGenerator.h"
-#include "../../device/PublicDefines.h"
-#include <memory>
+#include "../../../test/generator/hmmSeqGenerator.h"
+#include "../../../device/PublicDefines.h"
 
+extern "C"{
+  #include <FastaVector.h>
+  #include <p7HmmReader.h>
+}
 
-using std::vector;
-using std::make_shared;
-using std::shared_ptr;
 
 const char* phmmFileSrc = "refTest.hmm";
 const char* seqFileSrc = "refTest.fasta";
@@ -17,10 +17,10 @@ const uint32_t sequenceLength = NUM_CELL_PROCESSORS * 5;
 
 int main(int argc, char** argv) {
   //run the hardware
-  shared_ptr<Havac> havac = make_shared<Havac>(0);
+  shared_ptr<Havac> havac = make_shared<Havac>(0, desiredPValue);
   generateRandomHmmSeqPairToFiles(sequenceLength, seqFileSrc, phmmFileSrc);
   struct HmmSeqPair generateRandomHmmSeqPair(const uint32_t seqLength);
-  havac->loadPhmm(phmmFileSrc, desiredPValue);
+  havac->loadPhmm(phmmFileSrc);
   havac->loadSequence(seqFileSrc);
   havac->runHardwareClient();
   shared_ptr<vector<VerifiedHit>> hardwareHits = havac->getHitsFromFinishedRun();
