@@ -82,9 +82,9 @@ protected:
   ///     when projecting the PHMM for use in the HAVAC hardware.
   /// @param verifiedHitList  list of verified hits. if any hits are found in this function, they will be appended to
   ///   this vector.
-  void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
+  void verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
     const uint32_t hitOccurredAtPhmmIndex, const uint32_t possibleSequenceIndexStart, const uint32_t possibleSequenceIndexEnd,
-    const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList)
+    const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList);
 
 };
 #endif
