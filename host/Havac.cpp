@@ -6,9 +6,10 @@
 #include <stdexcept>
 #include <exception>
 
-Havac::Havac(const uint32_t deviceIndex, const float requiredPValue = 0.05f)
+Havac::Havac(const uint32_t deviceIndex, const float requiredPValue, const std::string xclbinSrc)
   :deviceIndex(deviceIndex),
-  requiredPValue(requiredPValue) {
+  requiredPValue(requiredPValue),
+  havacXclbinFileSrc(xclbinSrc) {
   this->hwClient = shared_ptr<HavacHwClient>(new HavacHwClient(this->havacXclbinFileSrc, this->havacKernelName, deviceIndex));
   this->fastaVector = shared_ptr<FastaVector>(new FastaVector);
   this->p7HmmList = shared_ptr<P7HmmList>(new P7HmmList);

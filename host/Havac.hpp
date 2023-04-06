@@ -17,6 +17,8 @@ using std::shared_ptr;
 using std::vector;
 
 
+const std::string xclbinSrcDefault = "impl/havac.xclbin";
+
 class Havac {
 public:
   /// @brief creates a HAVAC control object, which gives a simple interface to the hardware coprocessor
@@ -25,7 +27,8 @@ public:
   ///   speficy anything further, sorry.
   /// @param requiredPValue p value that would cause a hit to be registered. If the p value needs to be changed for some reason,
   /// just make another Havac object
-  Havac(const uint32_t deviceIndex = 0, const float requiredPValue = 0.05f);
+  /// @param xclbinSrc 
+  Havac(const uint32_t deviceIndex = 0, const float requiredPValue = 0.05f, const std::string xclbinSrc = xclbinSrcDefault);
   Havac(Havac&& havac) = delete;
   Havac(Havac& havac) = delete;
   ~Havac();
@@ -77,7 +80,7 @@ private:
   bool phmmLoadedToDevice = false;
   bool sequenceLoadedToDevice = false;
 
-  const std::string havacXclbinFileSrc = "impl/havac.xclbin";
+  std::string havacXclbinFileSrc;
   const std::string havacKernelName = "havacKernel";
 };
 #endif
