@@ -1,9 +1,8 @@
 CXX = g++
-CXXFLAGS = -std=c++20
-#havac static library should be in the host build directory
-LIBS = -L../build -lhavac
+CXXFLAGS = -std=c++17 -I/opt/xilinx/xrt/include -I../../../generator
+LIBS = -L../build/ -L../../../build/ -lhavac -L/opt/xilinx/xrt/lib -lxrt_coreutil -luuid -lfastavector -lP7HmmReader
 
-SRCS = ReferenceComparisonTest.cpp Ssv.cpp
+SRCS =  ../../../test/generator/hmmSeqGenerator.cpp ../../../PhmmReprojection/PhmmReprojection.cpp ReferenceComparisonTest.cpp Ssv.cpp
 OBJS = $(SRCS:.cpp=.o)
 EXEC = refCompare.out
 
