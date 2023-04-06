@@ -95,7 +95,7 @@ float generateScoreMultiplierForPhmmScore(const struct P7Hmm* const phmm, const 
   return scoreMultiplier;
 }
 
-inline float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier) {
+ float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier) {
   return scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmmScore);
 }
 
