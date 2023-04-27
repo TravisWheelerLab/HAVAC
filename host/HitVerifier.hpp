@@ -33,7 +33,7 @@ struct SsvReferenceBounds {
 ///   Objects of this class should only be used once, and a new HitVerifier should be generated if another HAVAC run needs to be verified.
 class HitVerifier {
 public:
-  HitVerifier(shared_ptr<FastaVector> fastaVector, shared_ptr<P7HmmList> phmmList);
+  HitVerifier(FastaVector *fastaVector, P7HmmList *phmmList);
   HitVerifier(HitVerifier& hv) = delete;
   HitVerifier(HitVerifier&& hv) = delete;
   ~HitVerifier() = default;
@@ -50,8 +50,8 @@ public:
 
 
 protected:
-  shared_ptr<FastaVector> fastaVector;
-  shared_ptr<P7HmmList> phmmList;
+  FastaVector *fastaVector;
+  P7HmmList *phmmList;
   shared_ptr<vector<float>> ssvCellScores;
 
   /// @brief attempts to verify a single hardware hit report. Any hits found via the reference SSV
@@ -85,6 +85,17 @@ protected:
   void verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
     const uint32_t hitOccurredAtPhmmIndex, const uint32_t possibleSequenceIndexStart, const uint32_t possibleSequenceIndexEnd,
     const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList);
+
+  /// @brief for a given hit group, verifies any and all hits that might have occurred in the report.
+  /// @param localPhmmPosition index in the phmm where the hit occurred, local to the given model
+  /// @param phmmIndex the index of which model in the phmm file should be checked.
+  /// @param sequenceSegmentIndex segment pass for the hit
+  /// @param groupIndex index of the group that caused the hit. Since hit reports may have hits in 
+  ///   multiple groups, this handles one group at a time. the group should be resolved from bit-position to index.
+  /// @param verifiedHitList list to append any found hits to.
+  /// @param desiredPValue p value needed to be reached for a hit to be reported.
+  void verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmIndex, uint32_t sequenceSegmentIndex, uint32_t groupIndex,
+    shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue);
 
 };
 #endif

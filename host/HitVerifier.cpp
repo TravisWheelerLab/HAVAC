@@ -63,27 +63,22 @@ std::tuple<uint32_t, uint32_t> HitVerifier::getPhmmIndexFromPosition(const Hardw
   return std::make_pair((uint32_t)hitLocatedInPhmmIndex, localPhmmHitPosition);
 }
 
-//can throw std::domain_error
-void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue) {
 
+void HitVerifier::verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmIndex, uint32_t sequenceSegmentIndex, uint32_t groupIndex,
+  shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue) {
+  std::cout << "phmm: "<< localPhmmPosition<<"."<<phmmIndex<<", ssi:"<< sequenceSegmentIndex<< "group: " << groupIndex << "." << std::endl;
   //find which phmm the hit was found in, and the local position of the hit.
-  uint32_t phmmIndex;
-  uint32_t localPhmmHitPosition;
-  std::tie(phmmIndex, localPhmmHitPosition) = getPhmmIndexFromPosition(hardwareHitReport);
 
-  //now we have enough info to get the phmm data needed for the local ssv verification. Now, 
-  //figure out which sequence segments might be in the range. 
-  //this represents the leftmost cell that could've caused the hit.
-  uint32_t sequenceHitRangePosition = (hardwareHitReport.sequencePassIndex * NUM_CELL_PROCESSORS) +
-    (hardwareHitReport.sequenceGroupIndex * CELLS_PER_GROUP);
+  uint32_t sequenceHitRangePosition = (sequenceSegmentIndex * NUM_CELL_PROCESSORS) +
+    (groupIndex * CELLS_PER_GROUP);
 
   //total length of all the sequences, concatenated together.
   uint32_t totalSequenceAggregatedLength = this->fastaVector->metadata.data[this->fastaVector->metadata.count - 1].sequenceEndPosition;
-  //leftmost cell in the DP-matrix to perform reference SSV on, clamped to zero (aka, a ReLU)
+  //leftmost cell in the DP-matrix to perform reference SSV on, clamped to zero
   uint32_t sequencePossibleStartPosition = std::max(0L, (int64_t)sequenceHitRangePosition - (int64_t)SSV_VERIFICATION_PRIOR_FLANK_RANGE);
   //this end position adds CELLS_PER_GROUP, since any cell in the group could've caused the hit.
   uint32_t sequencePossibleEndPosition = std::min(totalSequenceAggregatedLength,
-    sequencePossibleStartPosition + CELLS_PER_GROUP + SSV_VERIFICATION_POST_FLANK_RANGE);
+    sequenceHitRangePosition + CELLS_PER_GROUP + SSV_VERIFICATION_POST_FLANK_RANGE);
 
 
   //iterate through the sequences, and determine which sequences overlap this range
@@ -98,17 +93,35 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
       (thisSequenceEndPosition > sequencePossibleStartPosition);
 
     if (sequenceOverlapsWithPossibleHit) {
-      std::cout << "checking for hit in sequence #"<< sequenceIndex<<std::endl;
-      //these sequences overlap, the hit might be in this sequence. 
+      std::cout << "checking for hit in sequence #" << sequenceIndex << std::endl;
+      //the sequence overlaps with the possible hit area, the hit might be in this sequence. 
       //the phmm will need local coordinates, but the sequence will need global coordinants.
       //keep the ssv range in the range of the actual sequence.
       const uint32_t ssvSequenceRangeBegin = std::max(thisSequenceStartPosition, sequencePossibleStartPosition);
       //ssvSequenceRangeEnd is exclusive (this value may be out of bounds)
       const uint32_t ssvSequenceRangeEnd = std::min(thisSequenceEndPosition, sequencePossibleEndPosition);
-  std::cout << "["<<ssvSequenceRangeBegin << ","<<ssvSequenceRangeEnd<<"]"<<std::endl;
-      this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmHitPosition,
+      std::cout << "[" << ssvSequenceRangeBegin << "," << ssvSequenceRangeEnd << "]" << std::endl;
+      this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmPosition,
         ssvSequenceRangeBegin, ssvSequenceRangeEnd, desiredPValue, verifiedHitList);
     }
+  }
+}
+
+//can throw std::domain_error
+void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue) {
+  uint32_t groupsReportingHit = hardwareHitReport.sequenceGroupIndex;
+  while (groupsReportingHit) {
+    //find the next bit that's set in the sequence group index. while this will almost always only 
+    //have 1 bit set, we need to handle the possibility of multiple groups set in the same report.
+    uint32_t groupIndex = _bit_scan_forward(hardwareHitReport.sequenceGroupIndex);
+    //remove the group we're about to validaten from the sequenceGroupIndex data
+    groupsReportingHit ^= 1 << groupIndex;
+
+    uint32_t phmmIndex;
+    uint32_t localPhmmHitPosition;
+    std::tie(phmmIndex, localPhmmHitPosition) = getPhmmIndexFromPosition(hardwareHitReport);
+    verifyHitForGroup(localPhmmHitPosition, phmmIndex, hardwareHitReport.sequencePassIndex, groupIndex,
+      verifiedHitList, desiredPValue);
   }
 }
 
@@ -117,13 +130,12 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
 void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
   const uint32_t hitOccurredAtPhmmIndex, const uint32_t possibleSequenceIndexStart, const uint32_t possibleSequenceIndexEnd,
   const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList) {
-
+  int16_t debugBestScore = -1;
   uint_fast16_t SSV_THRESHOLD = 256;
   P7Hmm* phmmPointer = &this->phmmList->phmms[hitLocatedInPhmmNumber];
   float ssvScoreMultiplier = generateScoreMultiplierForPhmmScore(phmmPointer, desiredPValue);
 
   uint8_t phmmCardinality = p7HmmGetAlphabetCardinality(phmmPointer);
-  const float* phmmRange = &phmmPointer->model.matchEmissionScores[hitOccurredAtPhmmIndex * phmmCardinality];
 
   //iterate over each cell that could have caused the hit
   for (uint32_t sequenceConsiderationIndex = possibleSequenceIndexStart; sequenceConsiderationIndex < possibleSequenceIndexEnd;
@@ -149,9 +161,13 @@ void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, 
 
       float unprojectedMatchScore = phmmVectorAsFloat[sequenceSymbolAsIndex];
       float projectedPhmmMatchScore = projectPhmmScoreWithMultiplier(unprojectedMatchScore, ssvScoreMultiplier);
-      int_fast16_t matchScoreAsInt = projectedPhmmMatchScore;
+      int8_t matchScoreAsInt = projectedPhmmMatchScore;
       accumulatedScore += matchScoreAsInt;
 
+
+      if (accumulatedScore > debugBestScore) {
+        debugBestScore = accumulatedScore;
+      }
       //the following method of saturated addition and threshold checking should cause
       //no branching instructions on x86 GCC with -03 according to CompilerExplorer
       // first, we check for a threshold hit, and OR it into the boolean. Then,
@@ -166,4 +182,5 @@ void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, 
       verifiedHitList->push_back(hit);
     }
   }
+  std::cout << "best acc: " << debugBestScore << std::endl;
 }
