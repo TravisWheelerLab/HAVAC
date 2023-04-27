@@ -98,13 +98,14 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
       (thisSequenceEndPosition > sequencePossibleStartPosition);
 
     if (sequenceOverlapsWithPossibleHit) {
+      std::cout << "checking for hit in sequence #"<< sequenceIndex<<std::endl;
       //these sequences overlap, the hit might be in this sequence. 
       //the phmm will need local coordinates, but the sequence will need global coordinants.
       //keep the ssv range in the range of the actual sequence.
       const uint32_t ssvSequenceRangeBegin = std::max(thisSequenceStartPosition, sequencePossibleStartPosition);
       //ssvSequenceRangeEnd is exclusive (this value may be out of bounds)
       const uint32_t ssvSequenceRangeEnd = std::min(thisSequenceEndPosition, sequencePossibleEndPosition);
-
+  std::cout << "["<<ssvSequenceRangeBegin << ","<<ssvSequenceRangeEnd<<"]"<<std::endl;
       this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmHitPosition,
         ssvSequenceRangeBegin, ssvSequenceRangeEnd, desiredPValue, verifiedHitList);
     }
