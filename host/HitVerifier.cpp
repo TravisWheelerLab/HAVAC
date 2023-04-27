@@ -9,7 +9,7 @@
 //private
 
 
-HitVerifier::HitVerifier(shared_ptr<FastaVector> fastaVector, shared_ptr<P7HmmList> phmmList)
+HitVerifier::HitVerifier(FastaVector* fastaVector, P7HmmList* phmmList)
   :fastaVector(fastaVector),
   phmmList(phmmList) {
   this->ssvCellScores = std::make_shared<vector<float>>(SSV_PHMM_VERIFICATION_RANGE);
@@ -130,9 +130,8 @@ void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, 
     sequenceConsiderationIndex++) {
     //the length of the diagonal to accumulate score on. this could be shorter if that length would go past the start of the phmm or sequence  
     const uint32_t MAX_SSV_WALKBACK_DISTANCE = 64;
-    uint32_t diagonalWalkbackLength = std::min({ MAX_SSV_WALKBACK_DISTANCE, hitOccurredAtPhmmIndex, possibleSequenceIndexStart });
-
-    int_fast16_t accumulatedScore = 0;
+    uint32_t diagonalWalkbackLength = std::min({ MAX_SSV_WALKBACK_DISTANCE, hitOccurredAtPhmmIndex, sequenceConsiderationIndex });
+    int16_t accumulatedScore = 0;
     bool foundThresholdHitOnDiagonal = false;
     for (uint32_t ssvWalkbackIndex = 0; ssvWalkbackIndex < diagonalWalkbackLength; ssvWalkbackIndex++) {
       const uint32_t walkbackPhmmIndex = hitOccurredAtPhmmIndex - ssvWalkbackIndex;
