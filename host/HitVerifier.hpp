@@ -33,7 +33,7 @@ struct SsvReferenceBounds {
 ///   Objects of this class should only be used once, and a new HitVerifier should be generated if another HAVAC run needs to be verified.
 class HitVerifier {
 public:
-  HitVerifier(FastaVector *fastaVector, P7HmmList *phmmList);
+  HitVerifier(FastaVector* fastaVector, P7HmmList* phmmList);
   HitVerifier(HitVerifier& hv) = delete;
   HitVerifier(HitVerifier&& hv) = delete;
   ~HitVerifier() = default;
@@ -50,8 +50,8 @@ public:
 
 
 protected:
-  FastaVector *fastaVector;
-  P7HmmList *phmmList;
+  FastaVector* fastaVector;
+  P7HmmList* phmmList;
   shared_ptr<vector<float>> ssvCellScores;
 
   /// @brief attempts to verify a single hardware hit report. Any hits found via the reference SSV
@@ -60,7 +60,7 @@ protected:
   /// @param verifiedHitList list of verified hits. any hits verified in this function are appended to this list
   /// @param desiredPValue p-value required to verify a hit. this should be the same value given to HAVAC at hardware runtime.
   void verifyHit(const HardwareHitReport& hardwareHitReport, shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue);
-  
+
   /// @brief given a hardware hit report, find the index of the phmm the hit occurred in, and the position
   ///   in that phmm the hit corresponds to. This function will throw an exception if the position is
   ///   outside the possible range for the given phmmlist
@@ -83,7 +83,7 @@ protected:
   /// @param verifiedHitList  list of verified hits. if any hits are found in this function, they will be appended to
   ///   this vector.
   void verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
-    const uint32_t hitOccurredAtPhmmIndex, const uint32_t possibleSequenceIndexStart, const uint32_t possibleSequenceIndexEnd,
+    const uint32_t hitOccurredAtPhmmIndex, const uint64_t possibleSequenceIndexStart, const uint64_t possibleSequenceIndexEnd,
     const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList);
 
   /// @brief for a given hit group, verifies any and all hits that might have occurred in the report.
@@ -96,6 +96,12 @@ protected:
   /// @param desiredPValue p value needed to be reached for a hit to be reported.
   void verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmIndex, uint32_t sequenceSegmentIndex, uint32_t groupIndex,
     shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue);
+
+
+  void verifySsvWalkback(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
+    const uint32_t phmmPosition, const uint64_t sequencePosition, const uint64_t maxWalkbackLength,
+    const uint64_t maxWalkforwardLength, const float* phmmVectorAsFloat, const char *sequenceData, const float ssvScoreMultiplier,
+    shared_ptr<vector<VerifiedHit>> verifiedHitList);
 
 };
 #endif
