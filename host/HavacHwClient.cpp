@@ -4,6 +4,9 @@
 #include "../device/PublicDefines.h"
 #include <string>
 #include <cassert>
+#include <exception>
+#include <stdexcept>
+#include <sstream>
 extern "C" {
   #include <FastaVector.h>
   #include <p7HmmReader.h>
