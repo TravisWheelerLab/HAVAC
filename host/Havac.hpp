@@ -81,6 +81,6 @@ private:
   bool sequenceLoadedToDevice = false;
 
   std::string havacXclbinFileSrc;
-  const std::string havacKernelName = "havacKernel";
+  const std::string havacKernelName = "HavacKernel";
 };
 #endif
