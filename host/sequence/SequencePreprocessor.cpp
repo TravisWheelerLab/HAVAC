@@ -2,20 +2,23 @@
 #include "../../device/PublicDefines.h"
 
 #include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+#include <sstream>
 
 SequencePreprocessor::SequencePreprocessor(FastaVector* fastaVector) {
   const uint32_t numSequencesInFasta = fastaVector->metadata.count;
+
+  //the sequences are seperated by null terminators, but this is fine, they'll just be turned into random nucleotides
   this->originalSequenceLength = fastaVector->sequence.count;
   //round up to the next sequence segment boundary
   this->compressedSequenceLengthInSegments = (originalSequenceLength + (NUM_CELL_PROCESSORS - 1)) / NUM_CELL_PROCESSORS;
   this->compressedSequenceLengthInSymbols = compressedSequenceLengthInSegments * NUM_CELL_PROCESSORS;
   this->compressedSequenceLengthInBytes = compressedSequenceLengthInSymbols / SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE;
-  this->compressedSequenceBuffer = std::make_shared<vector<uint8_t>>(this->compressedSequenceLengthInBytes);
-
   this->setCompressedSequence(fastaVector);
 }
 
-shared_ptr<vector<uint8_t>> SequencePreprocessor::getCompressedSequenceBuffer() {
+vector<uint8_t>& SequencePreprocessor::getCompressedSequenceBuffer() {
   return this->compressedSequenceBuffer;
 }
 
