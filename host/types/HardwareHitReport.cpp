@@ -18,3 +18,15 @@ HardwareHitReport::HardwareHitReport(uint32_t sequencePassIndex, uint8_t groupHi
   memcpy(this->groupHitBits, groupHitBits, GROUP_HIT_BITS_NUM_BYTES);
 
 }
+
+
+std::string HardwareHitReport::toString() {
+  std::stringstream ss;
+  ss << "phmm position: " << this->phmmPosition << ", sequence segment #" << this->sequencePassIndex << ", groups: ";
+  for (uint32_t i = GROUP_HIT_BITS_NUM_BYTES; i > 0;i--) {
+    ss << std::bitset<8>(this->groupHitBits[i]).to_string() << "_";
+  }
+  ss << std::bitset<8>(this->groupHitBits[0]).to_string();
+
+  return ss.str();
+}
