@@ -61,4 +61,4 @@ target_sources(havac PRIVATE
 target_link_libraries(havac PUBLIC xrt_coreutil uuid)
 target_link_libraries(havac PUBLIC xilinxopencl pthread)
 target_link_libraries(havac PUBLIC fastavector P7HmmReader)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall -Wextra")
