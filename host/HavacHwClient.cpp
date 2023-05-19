@@ -75,10 +75,26 @@ void HavacHwClient::allocateBuffers() {
   this->allocateBuffer(HAVAC_HIT_REPORT_BUFFER_GROUP_ID, this->hitReportBuffer, this->hitReportAllocationSizeInBytes);
   this->allocateBuffer(HAVAC_HIT_REPORT_COUNT_BUFFER_GROUP_ID, this->hitReportCountBuffer, sizeof(uint32_t));
 }
+
+void HavacHwClient::writeSequence(const vector<uint8_t>& compressedSequence) {
+  //get the length of the sequence, in segments. this will throw if the 
+  //compressed sequence isn't divisble into even segments. 
+  uint32_t numSymbolsInSequence = compressedSequence.size() * 4;  //2-bit symbols = 4 symbols/byte
+  uint32_t numSequenceSegments = numSymbolsInSequence / NUM_CELL_PROCESSORS;
+  if (numSymbolsInSequence != (numSequenceSegments * NUM_CELL_PROCESSORS)) {
+    std::ostringstream stringStream;
+    stringStream << "sequence length must be a multiple of the sequence segment length " <<
+      std::to_string(NUM_CELL_PROCESSORS) << " but sequence of length " << std::to_string(numSymbolsInSequence) <<
+      " was not \n";
+    throw std::length_error(stringStream.str());
+  }
+  this->sequenceLengthInSegments = numSequenceSegments;
+
   try {
     const size_t bufferOffset = 0;
-    phmmBuffer->write(compressedSequence->data(), sizeof(compressedSequence), bufferOffset);
-    phmmBuffer->sync(XCL_BO_SYNC_BO_TO_DEVICE);
+    const size_t compressedSequenceSize = compressedSequence.size();
+    sequenceBuffer->write(compressedSequence.data(), compressedSequence.size(), bufferOffset);
+    sequenceBuffer->sync(XCL_BO_SYNC_BO_TO_DEVICE);
   }
   catch (std::exception& e) {
     std::cerr << "ERROR: failed to write sequence data to fpga client.\n" << e.what() << std::endl;

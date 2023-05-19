@@ -34,8 +34,8 @@ public:
   /// @brief writes the given sequence to the DDR memory on the FPGA board
   /// @param compressedSequence sequence to write, as expressed as bit-compressed nucleotides
   ///         each uint8_t should contain 4 contiguous nucleotides as 2-bit encodings. 
-  void writeSequence(shared_ptr<vector<uint8_t>> compressedSequence);
-  
+  void writeSequence(const vector<uint8_t>& compressedSequence);
+
   /// @brief writes the given phmm to the DDR memory on the FPGA board 
   /// @param phmmAsFlattenedArray concatenated phmm list, in flattened signed 8-bit scores.
   ///         These scores should have been reprojected using the PhmmReprojection code
@@ -65,7 +65,7 @@ public:
   ///         returns ERT_CMD_STATE_TIMEOUT if timeout was triggered
   /// @return state of the hardware upon returning, see getHwState()
   ert_cmd_state waitForHavacSsvAsync(const std::chrono::milliseconds& timeout = std::chrono::milliseconds{ 0 });
-  
+
   /// @brief aborts the current hardware run. The docs don't specify what happens if you call this 
   ///         while the FPGA isn't running, so it might be undefined behavior.
   /// @return state of the aborted command, which I assume should be ERT_CMD_STATE_ABORT.
