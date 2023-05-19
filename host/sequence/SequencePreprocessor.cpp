@@ -35,23 +35,26 @@ uint32_t SequencePreprocessor::getCompressedSquenceLengthInBytes() {
 }
 
 void SequencePreprocessor::setCompressedSequence(struct FastaVector* fastaVector) {
-  char* sequence = fastaVector->sequence.charData;
-  for (uint32_t i = 0; i < this->compressedSequenceLengthInSymbols; i++) {
+  //if you're reading this, I'm so sorry. FastaVector has null terminators inside, and
+  //removing them is a whole thing. the consequences for my poor decision making 
+  //haunt me.
+  this->compressedSequenceBuffer = vector<uint8_t>(this->compressedSequenceLengthInBytes);
 
-    //if the symbol is past the end of the original sequence, just write 'a's until the end.
-    const char originalSymbol = (i < this->originalSequenceLength) ? sequence[i] : 'a';
-    const uint8_t compressedSymbol = this->getCompressedSymbol(originalSymbol);
+  for(uint32_t sequenceIndex = 0; sequenceIndex < fastaVector->sequence.count; sequenceIndex++){
+    char symbolFromSequence = fastaVector->sequence.charData[sequenceIndex];
+    const uint8_t compressedSymbol = this->getCompressedSymbol(symbolFromSequence);
+    const uint32_t byteInCompressedSequence = sequenceIndex / SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE;
+    const uint8_t bitIndexInByte = (sequenceIndex % SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE) * SEQUENCE_PREPROCESSOR_BITS_PER_SYMBOL;
 
-    const uint32_t byteInCompressedSequence = i / SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE;
-    const uint8_t bitIndexInByte = (i % SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE) * 2;
 
     //mask away whatever was there in the compressed sequence
-    const uint8_t bitmask = ~(0x3 << bitIndexInByte);
-    this->compressedSequenceBuffer->data()[byteInCompressedSequence] &= bitmask;
-
+    const uint8_t bitTemplate = ((1 << SEQUENCE_PREPROCESSOR_BITS_PER_SYMBOL) - 1);
+    const uint8_t bitmask = ~(bitTemplate << bitIndexInByte);
+    this->compressedSequenceBuffer[byteInCompressedSequence] &= bitmask;
     //write the new symbol into the data buffer
     const uint8_t shiftedCompressedSymbol = compressedSymbol << bitIndexInByte;
-    this->compressedSequenceBuffer->data()[byteInCompressedSequence] |= shiftedCompressedSymbol;
+
+    this->compressedSequenceBuffer[byteInCompressedSequence] |= shiftedCompressedSymbol;
   }
 }
 

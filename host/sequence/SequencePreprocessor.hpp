@@ -13,6 +13,7 @@ using std::shared_ptr;
 using std::vector;
 
 #define SEQUENCE_PREPROCESSOR_SYMBOLS_PER_BYTE 4
+#define SEQUENCE_PREPROCESSOR_BITS_PER_SYMBOL 2
 
 class SequencePreprocessor {
 public:
@@ -22,10 +23,9 @@ public:
   ///     create a new object of this class.
   /// @param fastaVector struct containing the sequences to be processed
   SequencePreprocessor(struct FastaVector* fastaVector);
-
   /// @brief gets the compressed data representing the sequences inside the fasta from the constructor 
   /// @return shared_ptr to the compressed sequence data
-  shared_ptr<vector<uint8_t>> getCompressedSequenceBuffer();
+  vector<uint8_t>& getCompressedSequenceBuffer();
 
   /// @brief gets the total sequence length in segments. This is a required argument for the HAVAC invocation.
   /// @return number of sequence segments making up the full compressed sequence 
@@ -44,7 +44,7 @@ private:
   uint32_t compressedSequenceLengthInSegments;
   uint32_t compressedSequenceLengthInSymbols;
   uint32_t compressedSequenceLengthInBytes;
-  shared_ptr<vector<uint8_t>> compressedSequenceBuffer;
+  vector<uint8_t> compressedSequenceBuffer;
 
   /// @brief compresses the sequence in the given fastaVector into 2-bit symbol encodings.
   ///     this function writes the compressed sequence to compressedSequenceBuffer, which
