@@ -4,7 +4,7 @@
 
 #define BYTES_PER_PHMM_VECTOR 4
 
-PhmmPreprocessor::PhmmPreprocessor(std::shared_ptr<P7HmmList> phmmList, const float desiredPvalue) {
+PhmmPreprocessor::PhmmPreprocessor(P7HmmList *phmmList, const float desiredPvalue) {
   //concatenates the lengths of all vectors in the phmm file.
   this->phmmDataLengthInVectors = 0;
   for (uint32_t i = 0; i < phmmList->count; i++) {

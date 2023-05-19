@@ -17,7 +17,7 @@ public:
   /// @brief Class to preprocess a phmm in P7HmmList form into the int8_t* form required by HAVAC 
   /// @param phmmList loaded phmm list to be processed into the phmm data for a single HAVAC call
   /// @param desiredPvalue pvalue used to scale the the scores in the phmm 
-  PhmmPreprocessor(std::shared_ptr<P7HmmList> phmmList, const float desiredPvalue = 0.05f);
+  PhmmPreprocessor(P7HmmList *phmmList, const float desiredPvalue = 0.05f);
   
   /// @brief get the processed phmm data that can be loaded onto the HAVAC FPGA system. 
   /// @return shared_ptr to the data array.
