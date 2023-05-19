@@ -102,10 +102,20 @@ void HavacHwClient::writeSequence(const vector<uint8_t>& compressedSequence) {
   }
 }
 void HavacHwClient::writePhmm(std::shared_ptr<vector<int8_t>> phmmAsFlattenedArray) {
+  uint32_t phmmLengthInVectors = phmmAsFlattenedArray->size() / 4;
+  if (phmmAsFlattenedArray->size() != phmmLengthInVectors * 4) {
+    std::ostringstream stringStream;
+    stringStream << "phmm of length length " << phmmAsFlattenedArray->size() <<
+      " was given, but was not divisible by 4. only "
+      "nucleotide phmms with 4 scores/position is supported.\n";
+    throw std::length_error(stringStream.str());
+  }
+  this->phmmLengthInVectors = phmmLengthInVectors;
+
   try {
     const size_t bufferOffset = 0;
     //dereference the phmm shared_ptr to get the actual array data. 
-    phmmBuffer->write(phmmAsFlattenedArray->data(), sizeof(phmmAsFlattenedArray), bufferOffset);
+    phmmBuffer->write(phmmAsFlattenedArray->data(), phmmAsFlattenedArray->size(), bufferOffset);
     phmmBuffer->sync(XCL_BO_SYNC_BO_TO_DEVICE);
   }
   catch (std::exception& e) {
