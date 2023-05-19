@@ -14,22 +14,20 @@ using std::shared_ptr;
 using std::vector;
 using std::tuple;
 
+//group IDs are used by the XRT framework to identify what input the data goes to
 #define HAVAC_SEQUENCE_BUFFER_GROUP_ID 0
-#define HAVAC_SEQUENCE_LENGTH_GROUP_ID 1
 #define HAVAC_PHMM_BUFFER_GROUP_ID 2
-#define HAVAC_PHMM_LENGTH_GROUP_ID 3
 #define HAVAC_HIT_REPORT_BUFFER_GROUP_ID 4
-#define HAVAC_HIT_REPORT_LENGTH_GROUP_ID 5
+#define HAVAC_HIT_REPORT_COUNT_BUFFER_GROUP_ID 5
 
-//constructor
+
 HavacHwClient::HavacHwClient(const std::string& xclbinFileSrc, const std::string& havacKernelName, const uint32_t deviceIndex) {
   //identify the device and load the xclbin file.
   this->havacDevice = xrt::device(deviceIndex);
+
   this->generateKernel(xclbinFileSrc, havacKernelName);
   this->allocateBuffers();
-  this->numHits = -1;
 }
-
 
 void HavacHwClient::generateKernel(const std::string& xclbinFileSrc, const std::string& havacKernelName) {
   if (!havacDevice) {
@@ -102,12 +100,15 @@ void HavacHwClient::writePhmm(std::shared_ptr<vector<int8_t>> phmmAsFlattenedArr
 
 
 void HavacHwClient::invokeHavacSsvAsync() {
-  //reset the num hits, just in case. this allows us to check to make sure it was set by the hardware.
-  //I considered using a std::optional<> type, but getting the runObject to work with an optional_T would be a pain.
-  this->numHits = -1;
+  if (this->sequenceLengthInSegments == 0) {
+    throw std::length_error("sequence length in segments cannot be 0, but 0 was given to the client.");
+  }
+  if (this->phmmLengthInVectors == 0) {
+    throw std::length_error("phmm length in vectors cannot be 0, but 0 was given to the client.");
+  }
 
-  this->havacRunObject = (*this->havacKernel)(*this->sequenceBuffer, this->sequenceLengthInSegments, *this->phmmBuffer,
-    this->phmmLengthInVectors, *this->hitReportBuffer, this->numHits);
+  this->havacRunObject = this->havacKernel.get()(this->sequenceBuffer.get(), this->sequenceLengthInSegments, this->phmmBuffer.get(),
+    this->phmmLengthInVectors, this->hitReportBuffer.get(), this->hitReportCountBuffer.get());
 }
 
 ert_cmd_state HavacHwClient::waitForHavacSsvAsync(
@@ -129,15 +130,29 @@ ert_cmd_state HavacHwClient::getHwState() {
   }
 }
 
-shared_ptr<vector<HardwareHitReport>> HavacHwClient::getHitReportList() {
-  if (this->numHits < 0) {
-    throw std::logic_error("number of hits was not initialized, did the hardare fail to run?");
+uint32_t HavacHwClient::getNumHits() {
+  uint32_t numHits = -1;
+  try {
+    this->hitReportCountBuffer->sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+    this->hitReportCountBuffer->read(&numHits, sizeof(uint32_t), 0);
   }
+  catch (std::exception&) {
+    throw std::runtime_error("ERROR: unable to read hit report count from hardware client.");
+  }
+  if (numHits == (uint32_t)-1) {
+    throw std::runtime_error("num hits was not set by the client!");
+  }
+  return numHits;
+}
+
+shared_ptr<vector<HardwareHitReport>> HavacHwClient::getHitReportList() {
+  uint32_t numHits = this->getNumHits();
   shared_ptr<vector<HardwareHitReport>> hitReportList =
     std::make_shared<vector<HardwareHitReport>>(numHits);
 
   try {
-    hitReportBuffer->read(hitReportList->data(), sizeof(HardwareHitReport) * this->numHits, 0);
+    this->hitReportBuffer->sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+    hitReportBuffer->read(hitReportList->data(), sizeof(HardwareHitReport) * numHits, 0);
   }
   catch (std::exception&) {
     std::cerr << "ERROR: unable to read hit reports from hardware client" << std::endl;
