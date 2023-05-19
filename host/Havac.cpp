@@ -5,30 +5,33 @@
 
 #include <stdexcept>
 #include <exception>
+#include <array>
 
 Havac::Havac(const uint32_t deviceIndex, const float requiredPValue, const std::string xclbinSrc)
   :deviceIndex(deviceIndex),
   requiredPValue(requiredPValue),
   havacXclbinFileSrc(xclbinSrc) {
-  this->hwClient = shared_ptr<HavacHwClient>(new HavacHwClient(this->havacXclbinFileSrc, this->havacKernelName, deviceIndex));
-  this->fastaVector = shared_ptr<FastaVector>(new FastaVector);
-  this->p7HmmList = shared_ptr<P7HmmList>(new P7HmmList);
-  //here, 
-  enum FastaVectorReturnCode rc = fastaVectorInit(this->fastaVector.get());
+  this->hwClient = std::make_shared<HavacHwClient>(this->havacXclbinFileSrc, this->havacKernelName, deviceIndex);
+  this->fastaVector = (FastaVector*)malloc(sizeof(FastaVector));
+  this->p7HmmList = (P7HmmList*)malloc(sizeof(P7HmmList));
+  enum FastaVectorReturnCode rc = fastaVectorInit(this->fastaVector);
   if (rc == FASTA_VECTOR_ALLOCATION_FAIL) {
     throw std::bad_alloc();
   }
 }
+
 Havac::~Havac() {
-  fastaVectorDealloc(this->fastaVector.get());
-  p7HmmListDealloc(this->p7HmmList.get());
+  fastaVectorDealloc(this->fastaVector);
+  p7HmmListDealloc(this->p7HmmList);
+  free(this->fastaVector);
+  free(this->p7HmmList);
 
 }
 
 
 void Havac::loadPhmm(const std::string phmmSrc) {
 
-  enum P7HmmReturnCode rc = readP7Hmm(phmmSrc.c_str(), this->p7HmmList.get());
+  enum P7HmmReturnCode rc = readP7Hmm(phmmSrc.c_str(), this->p7HmmList);
   if (rc == p7HmmAllocationFailure) {
     throw std::bad_alloc();
   }
@@ -45,22 +48,24 @@ void Havac::loadPhmm(const std::string phmmSrc) {
 }
 
 void Havac::loadSequence(const std::string fastaSrc) {
-  enum FastaVectorReturnCode rc = fastaVectorReadFasta(fastaSrc.c_str(), this->fastaVector.get());
+  enum FastaVectorReturnCode rc = fastaVectorReadFasta(fastaSrc.c_str(), fastaVector);
   if (rc == FASTA_VECTOR_ALLOCATION_FAIL) {
     throw std::bad_alloc();
   }
   else if (rc == FASTA_VECTOR_FILE_OPEN_FAIL) {
-    throw "Could not open fasta file for reading.";
+    throw std::runtime_error("Could not open fasta file for reading.");
   }
   else if (rc == FASTA_VECTOR_FILE_READ_FAIL) {
-    throw "Error while reading from the opened fasta file.";
+    throw std::runtime_error("Error while reading from the opened fasta file.");
   }
 
   shared_ptr<SequencePreprocessor> sequencePreprocessor =
-    std::make_shared<SequencePreprocessor>(this->fastaVector.get());
+    std::make_shared<SequencePreprocessor>(this->fastaVector);
 
+  vector<uint8_t>& compressedSeq = sequencePreprocessor->getCompressedSequenceBuffer();
 
-  hwClient->writeSequence(sequencePreprocessor->getCompressedSequenceBuffer());
+  size_t seqSize = compressedSeq.size();
+  hwClient->writeSequence(compressedSeq);
   this->sequenceLoadedToDevice = true;
 }
 
@@ -94,7 +99,9 @@ shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
   shared_ptr<HitVerifier> hitVerifier = std::make_shared<HitVerifier>(this->fastaVector,
     this->p7HmmList);
 
-  return hitVerifier->verify(unverifiedHitList, requiredPValue);
+  auto verifiedHits = hitVerifier->verify(unverifiedHitList, this->requiredPValue);
+
+  return verifiedHits;
 }
 
 

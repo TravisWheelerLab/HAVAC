@@ -72,8 +72,8 @@ public:
 
 private:
   shared_ptr<HavacHwClient> hwClient;
-  shared_ptr<FastaVector> fastaVector;
-  shared_ptr<P7HmmList> p7HmmList;
+  FastaVector *fastaVector;
+  P7HmmList *p7HmmList;
   shared_ptr<int8_t[]> projectedPhmmMatchScores;
   uint32_t deviceIndex;
   float requiredPValue;
