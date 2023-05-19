@@ -53,30 +53,30 @@ void HavacHwClient::generateKernel(const std::string& xclbinFileSrc, const std::
   }
 }
 
-
-void HavacHwClient::allocateBuffers() {
-  int sequenceBankGroup, sequenceLenBankGroup, phmmBankGroup, phmmLenBankGroup, hitReportBankGroup;
+void HavacHwClient::allocateBuffer(const int argumentIndex, boost::optional<xrt::bo>& buffer, const uint64_t sizeInBytes) {
+  int bankGroup;
   try {
-    auto sequenceBankGroup = havacKernel->group_id(HAVAC_SEQUENCE_BUFFER_GROUP_ID);
-    auto phmmBankGroup = havacKernel->group_id(HAVAC_PHMM_BUFFER_GROUP_ID);
-    auto hitReportBankGroup = havacKernel->group_id(HAVAC_HIT_REPORT_BUFFER_GROUP_ID);
+    bankGroup = this->havacKernel->group_id(argumentIndex);
   }
   catch (std::exception& e) {
-    std::cerr << "ERROR: could not generate bank group index for one of the buffers\n" << e.what() << std::endl;
+    std::cerr << "ERROR: could not generate bank group for argument index " << argumentIndex << "." << std::endl;
     throw;
   }
   try {
-    this->sequenceBuffer = xrt::bo(*havacDevice, this->sequenceAllocationSizeInBytes, sequenceBankGroup);
-    this->phmmBuffer = xrt::bo(*havacDevice, this->phmmAllocationSizeInBytes, sequenceBankGroup);
-    this->hitReportBuffer = xrt::bo(*havacDevice, this->hitReportAllocationSizeInBytes, hitReportBankGroup);
+    buffer = xrt::bo(this->havacDevice.get(), sizeInBytes, bankGroup);
   }
   catch (std::exception& e) {
-    std::cerr << "ERROR: could not allocate memory for one or more hardware-side buffers\n" << e.what() << std::endl;
+    std::cerr << "ERROR: failure to allocate memory for device buffer on argument index " << argumentIndex << std::endl;
     throw;
   }
 }
 
-void HavacHwClient::writeSequence(std::shared_ptr<vector<uint8_t>> compressedSequence) {
+void HavacHwClient::allocateBuffers() {
+  this->allocateBuffer(HAVAC_SEQUENCE_BUFFER_GROUP_ID, this->sequenceBuffer, this->sequenceAllocationSizeInBytes);
+  this->allocateBuffer(HAVAC_PHMM_BUFFER_GROUP_ID, this->phmmBuffer, this->phmmAllocationSizeInBytes);
+  this->allocateBuffer(HAVAC_HIT_REPORT_BUFFER_GROUP_ID, this->hitReportBuffer, this->hitReportAllocationSizeInBytes);
+  this->allocateBuffer(HAVAC_HIT_REPORT_COUNT_BUFFER_GROUP_ID, this->hitReportCountBuffer, sizeof(uint32_t));
+}
   try {
     const size_t bufferOffset = 0;
     phmmBuffer->write(compressedSequence->data(), sizeof(compressedSequence), bufferOffset);

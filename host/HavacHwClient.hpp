@@ -102,6 +102,13 @@ protected:
   /// @brief allocates buffers on the FPGA card for the phmm/sequence/hitReports.
   ///         the allocated buffers should be large enough for any possible inputs/outputs.
   void allocateBuffers();
+
+  /// @breif allocates an individual buffer on the FPGA.
+  /// @param argumentIndex index of the argument to define a buffer for on the kernel's top-level function
+  /// @param buffer buffer object that will represent the allocated buffer on the hardware.
+  /// @param sizeInBytes size to allocate on the hardware. Must be less than 4GiB. 
+  void allocateBuffer(const int argumentIndex, boost::optional<xrt::bo>& buffer, const uint64_t sizeInBytes);
+
 };
 
 #endif
