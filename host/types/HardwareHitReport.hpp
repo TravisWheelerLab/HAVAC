@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include <device/PublicDefines.h>
+#include "../../device/PublicDefines.h"
 
 #define GROUP_HIT_BITS_NUM_BYTES (NUM_CELL_GROUPS /8)
 

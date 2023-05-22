@@ -2,7 +2,6 @@
 #include <sstream>
 #include <bitset>
 #include <string.h>
-#include "../../device/PublicDefines.h"
 
 HardwareHitReport::HardwareHitReport()
   :sequencePassIndex(0),
