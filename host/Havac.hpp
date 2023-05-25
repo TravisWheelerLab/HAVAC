@@ -3,9 +3,6 @@
 
 #include "HavacHwClient.hpp"
 #include "HitVerifier.hpp"
-#include "xrt/xrt_device.h"
-#include "xrt/xrt_kernel.h"
-#include "xrt/xrt_bo.h"
 extern "C"{
   #include <FastaVector.h>
   #include <p7HmmReader.h>
@@ -15,6 +12,18 @@ extern "C"{
 
 using std::shared_ptr;
 using std::vector;
+
+enum havac_cmd_state{
+  HAVAC_CMD_STATE_NEW = 1, 
+  HAVAC_CMD_STATE_QUEUED = 2,
+  HAVAC_CMD_STATE_RUNNING = 3,
+  HAVAC_CMD_STATE_COMPLETED = 4,
+  HAVAC_CMD_STATE_ERROR = 5,
+  HAVAC_CMD_STATE_ABORT = 6,
+  HAVAC_CMD_STATE_SUBMITTED = 7,
+  HAVAC_CMD_STATEIMEOUT = 8,
+  HAVAC_CMD_STATE_NORESPONSE = 9
+};
 
 
 const std::string xclbinSrcDefault = "impl/havac.xclbin";
@@ -59,16 +68,17 @@ public:
 
   /// @brief gets the current hardware state
   /// @return state of the hardware, possible returns are:
-  ///   ERT_CMD_STATE_NEW = 1, 
-  ///   ERT_CMD_STATE_QUEUED = 2,
-  ///   ERT_CMD_STATE_RUNNING = 3,
-  ///   ERT_CMD_STATE_COMPLETED = 4,
-  ///   ERT_CMD_STATE_ERROR = 5,
-  ///   ERT_CMD_STATE_ABORT = 6,
-  ///   ERT_CMD_STATE_SUBMITTED = 7,
-  ///   ERT_CMD_STATEIMEOUT = 8,
-  ///   ERT_CMD_STATE_NORESPONSE = 9
-  enum ert_cmd_state currentHardwareState();
+  ///   HAVAC_CMD_STATE_NEW = 1, 
+  ///   HAVAC_CMD_STATE_QUEUED = 2,
+  ///   HAVAC_CMD_STATE_RUNNING = 3,
+  ///   HAVAC_CMD_STATE_COMPLETED = 4,
+  ///   HAVAC_CMD_STATE_ERROR = 5,
+  ///   HAVAC_CMD_STATE_ABORT = 6,
+  ///   HAVAC_CMD_STATE_SUBMITTED = 7,
+  ///   HAVAC_CMD_STATEIMEOUT = 8,
+  ///   HAVAC_CMD_STATE_NORESPONSE = 9
+  enum havac_cmd_state currentHardwareState();
+
 
 private:
   shared_ptr<HavacHwClient> hwClient;
@@ -79,6 +89,7 @@ private:
   float requiredPValue;
   bool phmmLoadedToDevice = false;
   bool sequenceLoadedToDevice = false;
+  uint32_t numCellGroupsConfigValue;
 
   std::string havacXclbinFileSrc;
   const std::string havacKernelName = "HavacKernel";

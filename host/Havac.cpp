@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <exception>
 #include <array>
+#include <chrono>
 
 Havac::Havac(const uint32_t deviceIndex, const float requiredPValue, const std::string xclbinSrc)
   :deviceIndex(deviceIndex),
@@ -105,6 +106,6 @@ shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
 }
 
 
-ert_cmd_state Havac::currentHardwareState() {
-  return hwClient->getHwState();
+enum havac_cmd_state Havac::currentHardwareState() {
+  return (havac_cmd_state) hwClient->getHwState();
 }
