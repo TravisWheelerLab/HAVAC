@@ -29,7 +29,7 @@ HavacHwClient::HavacHwClient(const std::string& xclbinFileSrc, const std::string
   this->havacDevice = xrt::device(deviceIndex);
 
   this->generateKernel(xclbinFileSrc, havacKernelName);
-  this->allocateBuffers();
+  this->allocateOutputBuffers();
 }
 
 void HavacHwClient::generateKernel(const std::string& xclbinFileSrc, const std::string& havacKernelName) {
@@ -72,9 +72,7 @@ void HavacHwClient::allocateBuffer(const int argumentIndex, boost::optional<xrt:
   }
 }
 
-void HavacHwClient::allocateBuffers() {
-  this->allocateBuffer(HAVAC_SEQUENCE_BUFFER_GROUP_ID, this->sequenceBuffer, this->sequenceAllocationSizeInBytes);
-  this->allocateBuffer(HAVAC_PHMM_BUFFER_GROUP_ID, this->phmmBuffer, this->phmmAllocationSizeInBytes);
+void HavacHwClient::allocateOutputBuffers() {
   this->allocateBuffer(HAVAC_HIT_REPORT_BUFFER_GROUP_ID, this->hitReportBuffer, this->hitReportAllocationSizeInBytes);
   this->allocateBuffer(HAVAC_HIT_REPORT_COUNT_BUFFER_GROUP_ID, this->hitReportCountBuffer, sizeof(uint32_t));
 }
@@ -92,7 +90,8 @@ void HavacHwClient::writeSequence(const vector<uint8_t>& compressedSequence) {
     throw std::length_error(stringStream.str());
   }
   this->sequenceLengthInSegments = numSequenceSegments;
-
+  this->allocateBuffer(HAVAC_SEQUENCE_BUFFER_GROUP_ID, this->sequenceBuffer, compressedSequence.size());
+  
   try {
     const size_t bufferOffset = 0;
     const size_t compressedSequenceSize = compressedSequence.size();
@@ -114,6 +113,7 @@ void HavacHwClient::writePhmm(std::shared_ptr<vector<int8_t>> phmmAsFlattenedArr
     throw std::length_error(stringStream.str());
   }
   this->phmmLengthInVectors = phmmLengthInVectors;
+  this->allocateBuffer(HAVAC_PHMM_BUFFER_GROUP_ID, this->phmmBuffer, phmmAsFlattenedArray->size());
 
   try {
     const size_t bufferOffset = 0;

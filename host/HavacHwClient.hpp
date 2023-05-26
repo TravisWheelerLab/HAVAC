@@ -90,8 +90,8 @@ protected:
   uint32_t phmmLengthInVectors;
 
   // static const uint64_t sequenceAllocationSizeInBytes = 512UL * 1024UL * 1024UL * 8UL;  //4.0GiB
-  static const uint64_t sequenceAllocationSizeInBytes = 3UL * 1024UL * 1024UL * 1024UL;  //3GiB
-  static const uint32_t phmmAllocationSizeInBytes = 1UL * 1024UL * 1024UL;         //1MiB
+  // static const uint64_t sequenceAllocationSizeInBytes = 3UL * 1024UL * 1024UL * 1024UL;  //3GiB
+  // static const uint32_t phmmAllocationSizeInBytes = 1UL * 1024UL * 1024UL;         //1MiB
   //HAVAC supports 1024*1024 positions in the phmm, so the allocated size should be 4x that (1byte/symbol/position)
   static const uint32_t hitReportAllocationSizeInBytes = 4UL * 1024UL * 1024UL;     //4MiB
 
@@ -102,7 +102,7 @@ protected:
 
   /// @brief allocates buffers on the FPGA card for the phmm/sequence/hitReports.
   ///         the allocated buffers should be large enough for any possible inputs/outputs.
-  void allocateBuffers();
+  void allocateOutputBuffers();
 
   /// @breif allocates an individual buffer on the FPGA.
   /// @param argumentIndex index of the argument to define a buffer for on the kernel's top-level function
