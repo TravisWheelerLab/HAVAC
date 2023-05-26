@@ -90,6 +90,13 @@ void HavacHwClient::writeSequence(const vector<uint8_t>& compressedSequence) {
     throw std::length_error(stringStream.str());
   }
   this->sequenceLengthInSegments = numSequenceSegments;
+
+  if(compressedSequence.size() >= 4L*1024L*1024L*1024L){
+    std::stringstream ss;
+    ss << "compressed sequence size must be less than 4GiB. This implies the the sequence"
+    " as 8-bit chars should be less than 16GiB in length.  length requested: "<< compressedSequence.size()<< " bytes.";
+    throw std::length_error(ss.str());
+  }
   this->allocateBuffer(HAVAC_SEQUENCE_BUFFER_GROUP_ID, this->sequenceBuffer, compressedSequence.size());
   
   try {
@@ -113,6 +120,11 @@ void HavacHwClient::writePhmm(std::shared_ptr<vector<int8_t>> phmmAsFlattenedArr
     throw std::length_error(stringStream.str());
   }
   this->phmmLengthInVectors = phmmLengthInVectors;
+  if (phmmAsFlattenedArray->size() >= 1024L * 1024L * 1024L) {
+    std::stringstream ss;
+    ss << "model length must be less than 1MiB (model length < 1024*1024). T.  length requested: " << phmmAsFlattenedArray->size() << " bytes.";
+    throw std::length_error(ss.str());
+  }
   this->allocateBuffer(HAVAC_PHMM_BUFFER_GROUP_ID, this->phmmBuffer, phmmAsFlattenedArray->size());
 
   try {
