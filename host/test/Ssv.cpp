@@ -11,7 +11,7 @@ shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
 
   for (uint32_t phmmNumber = 0; phmmNumber < phmmList->count; phmmNumber++) {
     float* phmmMatchEmissionScores = phmmList->phmms[phmmNumber].model.matchEmissionScores;
-    float scoreMultiplier = generateScoreMultiplierForPhmmScore(&phmmList->phmms[phmmNumber], desiredPValue);
+    float scoreMultiplier = findThreshold256ScalingFactor(&phmmList->phmms[phmmNumber], desiredPValue);
     const uint32_t phmmLength = phmmList->phmms[phmmNumber].header.modelLength;
     shared_ptr<vector<uint8_t>> cellScores = make_shared<vector<uint8_t>>(phmmLength);
 
@@ -37,7 +37,7 @@ shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
         uint8_t previousCellValue = 0;
         for (uint32_t phmmPosition = 0; phmmPosition < phmmLength; phmmPosition++) {
           float matchScoreFromPhmmFile = phmmMatchEmissionScores[(phmmPosition * cardinality) + symbolEncoding];
-          float projectedMatchScore = projectPhmmScoreWithMultiplier(matchScoreFromPhmmFile, scoreMultiplier);
+          float projectedMatchScore = emissionScoreToProjectedScore(matchScoreFromPhmmFile, scoreMultiplier);
           int8_t projectedMatchScoreAsInt = projectedMatchScore;
           uint8_t tempCellValue = cellScores->data()[phmmPosition]; //store what was here before the summation so we can give it to the next cell.
           int16_t cellSumResults = (int16_t)previousCellValue + (int16_t)projectedMatchScoreAsInt;
