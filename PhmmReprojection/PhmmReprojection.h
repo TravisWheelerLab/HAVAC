@@ -5,21 +5,21 @@ extern "C" {
   #include "p7HmmReader.h"
 }
 
-/// @brief Finds the multiplier that would need to be applied to each score in the phmm to make it
-///   so that a score of exactly 256 would count as a threshold hit for the given p-value.
-///   Please note that the .phmm file stores the scores in negative log-odds, so this multiplier
-///   will multiply by -1, thus creating positive scores for good matches, and negative scores for bad matches.
-/// @param phmm pointer to the phmm to project. these score multipliers are on a per-model basis
-/// @param desiredPValue The p value required to generate a score of 256, thus generating a hit.
-/// @return  score multipler needed for each score in the given phmm.
-float generateScoreMultiplierForPhmmScore(const struct P7Hmm* const phmm, const float desiredPValue);
+/// @brief Finds the score multiplier needed to project the phmm scores so that
+/// a hit will be generated on an accumulated score of 256.
+/// @param phmm phmm to project. since the scaling factor depends on the maxLength attribute,
+///   the scaling factor will be unique to a particular hmm.
+/// @param pValue p-value of a diagonal that should generate a hit.
+float findThreshold256ScalingFactor(const struct P7Hmm* const phmm, const float pValue);
 
 
-/// @brief projects a score as given in a phmm file into a score for use with a constant 256 hit threshold.
-/// @param phmmScore score from the phmm file. this will be a negative log-odds score.
-/// @param scoreMultiplier multiplier found via the generateScoreMultiplierForPhmmScore() function.
-/// @return projected score in int8_t space.
-float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier);
+/// @brief projects a given score taken from the phmm file (negative natural log likelihood) into
+///  a score havac can use (in bits) with the score scaling to make hits occur at a score of 256.
+/// @param emissionScore score from the phmm file. this value is stored as a negative log likelihood value.
+/// @param scoreMultiplier multiplier to apply to the score (in bits) to make hits occur at a score of 256.
+/// @return 
+float emissionScoreToProjectedScore(const float emissionScore, const float scoreMultiplier);
+
 
 /// @brief projects the scores inside the given phmm such that an accumulated score of 256 represents a hit at
 ///     the given p-value. the phmm is not modified in this function. Instead, the projected score are used to

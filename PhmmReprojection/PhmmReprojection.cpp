@@ -4,8 +4,8 @@
 #include "PhmmReprojection.h"
 
 #define HAVAC_GUMBEL_EPSILON 5e-9
-#define eslCONST_LOG2 0.69314718055994529
-#define HAVAC_LOG_ONE_FOURTH -1.3862943611198906
+#define HAVAC_NAT_LOG_2 0.69314718055994529
+#define HAVAC_NAT_LOG_ONE_FOURTH -1.3862943611198906
 
 //this function is adapted from the easel function esl_gumbel_invsurv (esl_gumbel.h)
 //defines the inverse gumbel distribution, that is,
@@ -33,74 +33,96 @@ double esl_gumbel_invsurv(double p, double mu, double lambda) {
 
 //mu and lambda come from the STATS MSV line on the profile hmm
 //max length also from profile Hmm, same with modelLength
-float findThreshold256ScalingFactor(double p, double mu, double lambda, double maxLength, double modelLength) {
-  //given the probability of survival, give me the score. what score gives the p value?
-  //what score do we need to hit the required p value? this value is for the full model. 
-  double scoreRequiredForFullModelPvalue = esl_gumbel_invsurv(p, mu, lambda); //inverse survival (gumble distribution)
-  //we're only working with the single-hit model, so we need to add some penalties to make the probabilities match.
-  float nStateLoopPenalty = logf((float)maxLength / (float)(maxLength + 3));  //probablility of staying in the n state (or c state), looping.
-  float nStateLoopPenaltyTotal = nStateLoopPenalty * maxLength;  //total length penalty for the max sequence length
-  float nStateEscapePenalty = logf(3.0f / (float)(maxLength + 3));  //penalty for escaping the n or c states (increases by 1 every time seq len doubles)
-  float bStateToKthMStatePenalty = logf(2.0f / ((float)modelLength * (float)(modelLength + 1)));  //penalty for transition from b to kth 'm' option (msubk)
-  float transitionEToC = logf(1.0f / 2);
-  float coreModelAdjustment = (nStateEscapePenalty + nStateLoopPenaltyTotal +
-    nStateEscapePenalty + bStateToKthMStatePenalty + transitionEToC);
+float findThreshold256ScalingFactor(const struct P7Hmm* const phmm, const float pValue) {
+  const float mu = phmm->stats.msvGumbelMu;
+  const float lambda = phmm->stats.msvGumbelLambda;
+  const float maxLength = phmm->header.maxLength;
+  const float modelLength = phmm->header.modelLength;
+    //given the probability of survival, give me the score. what score gives the p value?
+    //what score do we need to hit the required p value? this value is for the full model. 
+    double scoreRequiredForFullModelPvalue = esl_gumbel_invsurv(pValue, mu, lambda); //inverse survival (gumbel distribution)
+    //we're only working with the single-hit model, so we need to add some penalties to make the probabilities match.
+    float nStateLoopPenalty = logf(maxLength / (maxLength + 3));  //probablility of staying in the n state (or c state), looping.
+    float nStateLoopPenaltyTotal = nStateLoopPenalty * maxLength;  //total length penalty for the max sequence length
+    float nStateEscapePenalty = logf(3.0f / (maxLength + 3));  //penalty for escaping the n or c states (increases by 1 every time seq len doubles)
+    float bStateToAnyMStatePenalty = logf(2.0f / (modelLength * (modelLength + 1)));  //penalty for transition from b to kth 'm' option (msubk)
+    float transitionEToC = logf(1.0f / 2);
+    float coreModelAdjustment = (nStateEscapePenalty + nStateLoopPenaltyTotal +
+      nStateEscapePenalty + bStateToAnyMStatePenalty + transitionEToC);
 
-  float backgroundLoopProbability = (float)maxLength / (float)(maxLength + 1); //background loop probability
-  float backgroundLoopPenaltyTotal = (float)maxLength * log(backgroundLoopProbability);  //total length penalty for the max sequence length background, change to bg_loop total or something
-  float backgroundMovePenalty = log(1.0 - backgroundLoopProbability);
-  float backgroundScore = backgroundLoopPenaltyTotal + backgroundMovePenalty;
+    float backgroundLoopProbability = maxLength / (maxLength + 1); //background loop probability
+    float backgroundLoopPenaltyTotal = maxLength * log(backgroundLoopProbability);  //total length penalty for the max sequence length background, change to bg_loop total or something
+    float backgroundMovePenalty = log(1.0 - backgroundLoopProbability);
+    float backgroundScore = backgroundLoopPenaltyTotal + backgroundMovePenalty;
 
-  float baseScoreThreshold =
-    (scoreRequiredForFullModelPvalue * eslCONST_LOG2) - coreModelAdjustment + backgroundScore;
-  // that's in nats; let's shift to bits
-  baseScoreThreshold /= eslCONST_LOG2;
+    float thresholdScoreInNats =
+      (scoreRequiredForFullModelPvalue * HAVAC_NAT_LOG_2) + backgroundScore - coreModelAdjustment;
+    // that's in nats; let's shift to bits
+    float thresholdScoreInBits = thresholdScoreInNats / HAVAC_NAT_LOG_2;
+    printf("pValue: %f, mu: %f, lambda: %f, MAXL: %u, modelLen %u\n", pValue, mu, lambda, (uint32_t)maxLength, (uint32_t)modelLength);
+    printf("gumbelInverse: %f, nStateLoopPenalty: %f, nStateLoopPenaltyTotal: %f,\n nStateEscapePenalty: %f,"
+      "bStateToAnyMStatePenalty: %f, transitionEToC: %f, coreModelAdjustment: %f\n", scoreRequiredForFullModelPvalue,
+      nStateLoopPenalty, nStateLoopPenaltyTotal, nStateEscapePenalty, bStateToAnyMStatePenalty, transitionEToC, coreModelAdjustment);
+    printf("backgroundLoopProbability: %f, backgroundLoopPenaltyTotal: %f, backgroundMovePenalty: %f, backgroundScore: %f\n",
+      backgroundLoopProbability, backgroundLoopPenaltyTotal, backgroundMovePenalty, backgroundScore);
 
-  float scaleFactor = 256.0f / baseScoreThreshold; //a hit should be triggered if a cell hits 256 (causes an 8-bit int overflow)
 
-  return scaleFactor;
+    float scaleFactor = 256.0f / thresholdScoreInBits; //a hit should be triggered if a cell hits 256 (causes an 8-bit int overflow)
+    printf("threshold (nats): %f, threshold (bits): %f, scalingFactor:: %f\n", thresholdScoreInNats, thresholdScoreInBits, scaleFactor);
+
+    return scaleFactor;
+
+
+  //original implementation, left for posterity
+  // #define eslCONST_LOG2 0.69314718055994529
+  // // (these are all in nats)
+  // float tloop = logf((float)maxLength / (float)(maxLength + 3));
+  // float tloop_total = tloop * maxLength;
+  // float tmove = logf(3.0f / (float)(maxLength + 3));
+  // float tbmk = logf(2.0f / ((float)modelLength * (float)(modelLength + 1)));
+  // float tec = logf(1.0f / 2);
+  // float bg_P = (float)maxLength / (float)(maxLength + 1);
+  // float null_sc = (float)maxLength * log(bg_P) + log(1.0 - bg_P);
+
+  // float invP = esl_gumbel_invsurv(pValue, mu, lambda);
+  // // (5) Get the score threshold
+  //   float sc_thresh = (invP * eslCONST_LOG2) + null_sc - (tmove + tloop_total + tmove + tbmk + tec);
+  // // that's in nats; let's shift to bits
+  // sc_thresh /= eslCONST_LOG2;
+
+  // return 256/sc_thresh; 
 }
 
+inline float emissionScoreToProjectedScore(const float emissionScore, const float scoreMultiplier) {
+  //this code takes a value from negative natural log likelihood space, and converts it
+  //into a bits score scaled such that the threshold score will be 256.
+  //this is a simplification of the following function: 
+  //log2((exp(-emissionScore) / (1/4))) * multiplier;
+  // where the 1/4 is the background distribution (even across 4 nucleotides)
+  //let's rewrite this so we can simplify: 
+  //y = log2(e^-s / (1/4) ) * m
+  //y = log2(4e^-s ) * m
+  //y = (log2(4) + log2(e^-s) ) * m
+  //y = (log2(4) - s*log2(e)) * m
+  //y = (2 - s*log2(e)) * m
+  //y = -log2(e) * (s -(2/log2(e)) ) * m
 
-float generateScoreMultiplierForPhmmScore(const struct P7Hmm* const phmm, const float desiredPValue) {
-  //there's some log/exp tricks here, the naive approach to rescaling these values is to use the formula:
-  // scaledScore = eslCONST_LOG2 *log(exp(-1* baseScore)/backgroundProbability) * scaleFactor;
-  // where backgroundProbability = .25, therefore
-  // scaledScore = eslCONST_LOG2 *log(exp(-1* baseScore)/.25) * scaleFactor;
-  //
-  //or more mathy, y = c1 * log(exp(-1*x)/.25)* c2
-  //  = c1 * log(exp(x)^-1/.25 * c2 = c1 * log(1/exp(x)/.25) * c2
-  //  = c1 * log(1/(exp(x)*.25)) *c2 =  c1 * (log(1)-log(exp(x)*.25))) *c2
-  //  = c1 * (-log(exp(x)*.25))) *c2 = c1 * (log(exp(x)*.25))) *c2 * -1
-  //  = c1 * (log(exp(x))+log(.25) ) *c2 * -1
-  //  = c1 * (x+log(.25) ) *c2 * -1
-  //  = (x + log(.25)) * (c1 * c2 * -1);
-  //assuming c1, c2, and x are real (they're floats).
-  //therefore, we can scale the scores simply with c1 * c2 * -1 * (x + log(.25))
-  // where c1 is the log(2), c2 is the scaleFactor for the desired p-value, and log(.25) can be a precomputed constant.
-  float mu = phmm->stats.msvGumbelMu;
-  float lambda = phmm->stats.msvGumbleLambda;
-  float modelLength = phmm->header.modelLength;
-  float maxLength = phmm->header.maxLength;
-  float scaleFactor = findThreshold256ScalingFactor(desiredPValue, mu, lambda, maxLength, modelLength);
-
-  const float scoreMultiplier = eslCONST_LOG2 * scaleFactor * -1.0f;
-
-  return scoreMultiplier;
-}
-
- float projectPhmmScoreWithMultiplier(const float phmmScore, const float scoreMultiplier) {
-  return scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmmScore);
+  // return log2((exp(-emissionScore)/.25))*multiplier;  //this is equivalent to the following
+  const float LOG2_E = 1.44269504089;
+  float projectedScore = -LOG2_E * (emissionScore - (2 / LOG2_E)) * scoreMultiplier;
+  return projectedScore;
 }
 
 void p7HmmProjectForThreshold256(const struct P7Hmm* const phmm, const float desiredPValue, int8_t* outputArray) {
 
   float modelLength = phmm->header.modelLength;
-  float scoreMultiplier = generateScoreMultiplierForPhmmScore(phmm, desiredPValue);
+  float scoreMultiplier = findThreshold256ScalingFactor(phmm, desiredPValue);
   uint32_t alphabetCardinality = p7HmmGetAlphabetCardinality(phmm);
 
   for (size_t i = 0; i < alphabetCardinality * modelLength; i++) {
-    //phmm->model.matchEmissionScores[i] = eslCONST_LOG2 * log(exp(-1* phmm->model.matchEmissionScores[i])/backgroundProbability) * scaleFactor;
-    outputArray[i] = scoreMultiplier * (HAVAC_LOG_ONE_FOURTH + phmm->model.matchEmissionScores[i]);
+    float valueFromHmmFile = phmm->model.matchEmissionScores[i];
+    float projectedScore = emissionScoreToProjectedScore(valueFromHmmFile, scoreMultiplier);
+
+    outputArray[i] = round(projectedScore);
   }
 }
