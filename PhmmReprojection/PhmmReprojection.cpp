@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include "PhmmReprojection.h"
 
-#define eslSMALLX1    5e-9
+#define HAVAC_GUMBEL_EPSILON 5e-9
 #define eslCONST_LOG2 0.69314718055994529
 #define HAVAC_LOG_ONE_FOURTH -1.3862943611198906
 
-//this function is straight out of HMMER
-//defines the inverse gumble distribution, that is,
+//this function is adapted from the easel function esl_gumbel_invsurv (esl_gumbel.h)
+//defines the inverse gumbel distribution, that is,
 // for a given p-value, what score is required to hit that value?
 // note that this is for the full model, not the single-hit reduced model we're working with,
 // so we'll need to add some penalties later to make it come out to the right values.
@@ -24,15 +24,9 @@ double esl_gumbel_invsurv(double p, double mu, double lambda) {
   *
   *    See notes Mar 1, 2010.
   */
-  double log_part;
-  if (p < eslSMALLX1) {
-    log_part = (pow(p, p) - 1) / p;
-  }
-  else {
-    log_part = log(-1. * log(1 - p));
-  }
-
-  //test 2
+  double log_part = (p < HAVAC_GUMBEL_EPSILON) ?
+    (pow(p, p) - 1) / p :
+    log(-1. * log(1 - p));
   return mu - (log_part / lambda);
 }
 
