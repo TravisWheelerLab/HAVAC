@@ -64,7 +64,8 @@ struct HmmSeqPair generateRandomHmmSeqPair(const uint32_t seqLength, const bool 
 
 
 
-void generateRandomHmmSeqPairToFiles(const uint32_t seqLength, const char* seqSrc, const char* phmmSrc, const bool addFlankingRegions, float sequenceMutationSubProbability) {
+void generateRandomHmmSeqPairToFiles(const uint32_t seqLength, const char* seqSrc, const char* phmmSrc,
+  const bool addFlankingRegions, float sequenceMutationSubProbability) {
   char* sequence = (char*)malloc(seqLength + 1); //alloc an additiona byte for null terminator
   if (sequence == NULL) {
     printf("ALLOCATION FAILURE: could not allocate memory for sequence in hmmSeqPair\n");
@@ -86,7 +87,6 @@ void generateRandomHmmSeqPairToFiles(const uint32_t seqLength, const char* seqSr
     float indelProbability = sequenceMutationSubProbability / 4.0f;
     mutateSequenceWithIndels(&sequence, seqLength, sequenceMutationSubProbability, indelProbability);
   }
-  printf("rewriting mutated sequence to fasta\n");
   writeSequenceToFasta(sequence, seqSrc);
   fflush(stdout);
   hmmSequenceGeneratorCleanupTempFiles();
@@ -232,6 +232,7 @@ void mutateSequenceWithIndels(char** sequence, const uint32_t seqLength, const f
       sequencePosition++;
     }
   }
+  newSequence.push_back('\0');
 
   free(*sequence);
   *sequence = (char*)malloc(newSequence.size());
