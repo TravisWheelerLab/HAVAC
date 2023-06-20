@@ -6,13 +6,15 @@
 #include <tuple>
 #include <algorithm>
 #include <cstring>
-//private
 
 
-HitVerifier::HitVerifier(FastaVector* fastaVector, P7HmmList* phmmList)
+
+uint8_t encodeSymbol(const char symbol);
+
+HitVerifier::HitVerifier(FastaVector* fastaVector, P7HmmList* phmmList, shared_ptr<vector<int8_t>> compressedPhmmScores)
   :fastaVector(fastaVector),
-  phmmList(phmmList) {
-  this->ssvCellScores = std::make_shared<vector<float>>(SSV_PHMM_VERIFICATION_RANGE);
+  phmmList(phmmList),
+  compressedPhmmScores(compressedPhmmScores) {
 }
 
 
@@ -27,7 +29,7 @@ shared_ptr<vector<VerifiedHit>> HitVerifier::verify(shared_ptr<vector<HardwareHi
 }
 
 
-std::tuple<uint32_t, uint32_t> HitVerifier::getPhmmIndexFromPosition(const HardwareHitReport& hardwareHitReport) {
+PhmmPositionInfo HitVerifier::getPhmmIndexFromPosition(const HardwareHitReport& hardwareHitReport) {
   const uint32_t numPhmmsInList = this->phmmList->count;
 
   //set initially to -1, if it ends as -1, the position was outside the possible range of values for the phmmList
@@ -60,11 +62,15 @@ std::tuple<uint32_t, uint32_t> HitVerifier::getPhmmIndexFromPosition(const Hardw
 
   uint32_t localPhmmHitPosition = hardwareHitReport.phmmPosition - globalPhmmStartPosition;
 
-  return std::make_pair((uint32_t)hitLocatedInPhmmIndex, localPhmmHitPosition);
+  struct PhmmPositionInfo positionInfo;
+  positionInfo.globalPosition = hardwareHitReport.phmmPosition;
+  positionInfo.localPosition = localPhmmHitPosition;
+  positionInfo.phmmIndex = hitLocatedInPhmmIndex;
+  return positionInfo;
 }
 
 
-void HitVerifier::verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmIndex, uint32_t sequenceSegmentIndex, uint32_t groupIndex,
+void HitVerifier::verifyHitForGroup(const PhmmPositionInfo phmmPositionInfo, uint32_t sequenceSegmentIndex, uint32_t groupIndex,
   shared_ptr<vector<VerifiedHit>> verifiedHitList, const float desiredPValue) {
   //find which phmm the hit was found in, and the local position of the hit.
 
@@ -76,8 +82,7 @@ void HitVerifier::verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmInd
   uint64_t totalSequenceAggregatedLength = this->fastaVector->metadata.data[this->fastaVector->metadata.count - 1].sequenceEndPosition;
 
   //this end position adds CELLS_PER_GROUP, since any cell in the group could've caused the hit.
-  uint64_t hitGroupEndCellIndex = std::min(totalSequenceAggregatedLength,
-    hitGroupStartCellIndex + CELLS_PER_GROUP);
+  uint64_t hitGroupEndCellIndex = std::min(totalSequenceAggregatedLength, hitGroupStartCellIndex + CELLS_PER_GROUP);
 
 
   //iterate through the sequences, and determine which sequences overlap this range
@@ -99,7 +104,7 @@ void HitVerifier::verifyHitForGroup(uint32_t localPhmmPosition, uint32_t phmmInd
       const uint64_t ssvSequenceRangeBegin = std::max(localSequenceStartPosition, hitGroupStartCellIndex);
       //ssvSequenceRangeEnd is exclusive (this value may be out of bounds)
       const uint64_t ssvSequenceRangeEnd = std::min(localSequenceEndPosition, hitGroupEndCellIndex);
-      this->verifyWithReferenceSsv(phmmIndex, sequenceIndex, localPhmmPosition,
+      this->verifyWithReferenceSsv(phmmPositionInfo, sequenceIndex,
         ssvSequenceRangeBegin, ssvSequenceRangeEnd, desiredPValue, verifiedHitList);
     }
     //set the start position using the end of the sequence we just looked at
@@ -118,26 +123,23 @@ void HitVerifier::verifyHit(const HardwareHitReport& hardwareHitReport, shared_p
       //find the next bit that's set in the sequence group index. while this will almost always only 
       //have 1 bit set, we need to handle the possibility of multiple groups set in the same report.
       uint32_t groupIndex = _bit_scan_forward(groupsReportingHits[thisGroupHitByte]);
-      //remove the group we're about to validaten from the sequenceGroupIndex data
+      //remove the group we're about to validate from the sequenceGroupIndex data
       groupsReportingHits[thisGroupHitByte] ^= 1 << groupIndex;
 
       groupIndex += (thisGroupHitByte * 8);
 
-      uint32_t phmmIndex;
-      uint32_t localPhmmHitPosition;
-      std::tie(phmmIndex, localPhmmHitPosition) = getPhmmIndexFromPosition(hardwareHitReport);
-      verifyHitForGroup(localPhmmHitPosition, phmmIndex, hardwareHitReport.sequencePassIndex, groupIndex,
+      PhmmPositionInfo phmmPositionInfo = getPhmmIndexFromPosition(hardwareHitReport);
+      verifyHitForGroup(phmmPositionInfo, hardwareHitReport.sequencePassIndex, groupIndex,
         verifiedHitList, desiredPValue);
     }
   }
 }
 
-void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
-  const uint32_t hitOccurredAtPhmmIndex, const uint64_t possibleSequenceIndexStart, const uint64_t possibleSequenceIndexEnd,
+void HitVerifier::verifyWithReferenceSsv(const PhmmPositionInfo phmmPositionInfo, const uint32_t sequenceNumber,
+  const uint64_t possibleSequenceIndexStart, const uint64_t possibleSequenceIndexEnd,
   const float desiredPValue, shared_ptr<vector<VerifiedHit>> verifiedHitList) {
-  P7Hmm* phmmPointer = &this->phmmList->phmms[hitLocatedInPhmmNumber];
+  P7Hmm* phmmPointer = &this->phmmList->phmms[phmmPositionInfo.phmmIndex];
   const uint_fast16_t SSV_THRESHOLD = 256;
-  const float ssvScoreMultiplier = generateScoreMultiplierForPhmmScore(phmmPointer, desiredPValue);
   const uint8_t phmmCardinality = p7HmmGetAlphabetCardinality(phmmPointer);
   const uint64_t phmmLength = phmmPointer->header.modelLength;
 
@@ -153,25 +155,24 @@ void HitVerifier::verifyWithReferenceSsv(const uint32_t hitLocatedInPhmmNumber, 
     sequenceConsiderationIndex++) {
 
     const uint64_t localSequenceConsiderationIndex = sequenceConsiderationIndex - localSequenceStartIndex;
-    const uint64_t remainingVectorsInPhmm = phmmLength - hitOccurredAtPhmmIndex;
+    const uint64_t remainingVectorsInPhmm = phmmLength - phmmPositionInfo.localPosition;
     const uint64_t remainingSymbolsInSequence = localSequenceEndIndex - localSequenceConsiderationIndex;
 
-    const uint32_t maximumSsvWalkback = std::min({ (uint64_t)hitOccurredAtPhmmIndex, localSequenceConsiderationIndex });
-    const uint32_t maximumSsvWalkforward = std::min({ (uint64_t)(phmmPointer->header.modelLength - hitOccurredAtPhmmIndex),
+    const uint32_t maximumSsvWalkback = std::min({ (uint64_t)phmmPositionInfo.localPosition, localSequenceConsiderationIndex });
+    const uint32_t maximumSsvWalkforward = std::min({ (uint64_t)(phmmPointer->header.modelLength - phmmPositionInfo.localPosition),
     this->fastaVector->metadata.data[sequenceNumber].sequenceEndPosition - sequenceConsiderationIndex });
 
-    float* phmmVectorAsFloat = phmmPointer->model.matchEmissionScores;
+
     const char* sequenceData = &this->fastaVector->sequence.charData[localSequenceStartIndex];
-    verifySsvWalkback(hitLocatedInPhmmNumber, sequenceNumber, hitOccurredAtPhmmIndex, localSequenceConsiderationIndex, maximumSsvWalkback,
-      maximumSsvWalkforward, phmmVectorAsFloat, sequenceData, ssvScoreMultiplier, verifiedHitList);
+    verifySsvWalkback(phmmPositionInfo, sequenceNumber, localSequenceConsiderationIndex, maximumSsvWalkback,
+      maximumSsvWalkforward, sequenceData, verifiedHitList);
 
   }
 }
 
-void HitVerifier::verifySsvWalkback(const uint32_t hitLocatedInPhmmNumber, const uint32_t sequenceNumber,
-  const uint32_t phmmPosition, const uint64_t sequencePosition, const uint64_t maxWalkbackLength,
-  const uint64_t maxWalkforwardLength, const float* phmmVectorAsFloat, const char* sequenceData, const float ssvScoreMultiplier,
-  shared_ptr<vector<VerifiedHit>> verifiedHitList) {
+void HitVerifier::verifySsvWalkback(const PhmmPositionInfo phmmPositionInfo, const uint32_t sequenceNumber,
+  const uint64_t sequencePosition, const uint64_t maxWalkbackLength, const uint64_t maxWalkforwardLength,
+  const char* sequenceData, shared_ptr<vector<VerifiedHit>> verifiedHitList) {
 
   const uint32_t PHMM_CARDINALITY = 4;
   int16_t accumulatedScore = 0;
@@ -179,68 +180,59 @@ void HitVerifier::verifySsvWalkback(const uint32_t hitLocatedInPhmmNumber, const
   for (uint32_t ssvWalkbackIndex = 0; ssvWalkbackIndex <= maxWalkbackLength; ssvWalkbackIndex++) {
 
     char sequenceSymbol = sequenceData[sequencePosition - ssvWalkbackIndex];
+    uint8_t sequenceSymbolAsIndex = encodeSymbol(sequenceSymbol);
 
-    uint8_t sequenceSymbolAsIndex;
-    switch (sequenceSymbol) {
-    case 'a': case 'A': sequenceSymbolAsIndex = 0; break;
-    case 'c': case 'C': sequenceSymbolAsIndex = 1; break;
-    case 'g': case 'G': sequenceSymbolAsIndex = 2; break;
-    default:            sequenceSymbolAsIndex = 3;
-    }
-
-    float unprojectedMatchScore = phmmVectorAsFloat[((phmmPosition - ssvWalkbackIndex) * PHMM_CARDINALITY) + sequenceSymbolAsIndex];
-    float projectedPhmmMatchScore = projectPhmmScoreWithMultiplier(unprojectedMatchScore, ssvScoreMultiplier);
-    int8_t matchScoreAsInt = projectedPhmmMatchScore;
-    uint8_t originalScore = accumulatedScore;
-    accumulatedScore += (int16_t)matchScoreAsInt;
+    uint32_t phmmScoreIndex = ((phmmPositionInfo.globalPosition - ssvWalkbackIndex) * PHMM_CARDINALITY) + sequenceSymbolAsIndex;
+    int8_t matchScore = this->compressedPhmmScores->at(phmmScoreIndex);
+    accumulatedScore += (int16_t)matchScore;
 
     if (accumulatedScore > highestScoreSeen) {
       highestScoreSeen = accumulatedScore;
     }
 
-
     //if we've accumulated to a score of 0 or lower, then nothing before this cell could've caused a hit.
-    if (accumulatedScore <= 0) {
+    if (accumulatedScore < 0) {
       return;
     }
     else if (accumulatedScore >= 256) {
-      VerifiedHit hit(sequencePosition, sequenceNumber, phmmPosition, hitLocatedInPhmmNumber);
+      VerifiedHit hit(sequencePosition, sequenceNumber, phmmPositionInfo.localPosition, phmmPositionInfo.phmmIndex);
       verifiedHitList->push_back(hit);
-      std::cout << "\t WALKBACK HIT: seq#" << sequenceNumber << " (" << sequencePosition << "), p#" << hitLocatedInPhmmNumber << " (" << phmmPosition << ")" << std::endl;
       return;
     }
   }
 
   //the bgest way we could extend this is by using the highest score we've seen so far during the walkback.
   accumulatedScore = highestScoreSeen;
-  std::cout << "walkback seems to have hit the start of the phmm or sequence, beginning walk forward with residual score" << (int)accumulatedScore << std::endl;
 
   //now, if we still haven't hit 256 or 0, walk forward past the place that hit to see if we'd get a hit on the diagonal.
   //the accumulator isn't cleared here, since we need to collect more score to see a hit
   for (size_t ssvWalkforwardIndex = 0; ssvWalkforwardIndex < maxWalkforwardLength; ssvWalkforwardIndex++) {
     char sequenceSymbol = sequenceData[sequencePosition + ssvWalkforwardIndex];
-    uint8_t sequenceSymbolAsIndex;
-    switch (sequenceSymbol) {
-    case 'a': case 'A': sequenceSymbolAsIndex = 0; break;
-    case 'c': case 'C': sequenceSymbolAsIndex = 1; break;
-    case 'g': case 'G': sequenceSymbolAsIndex = 2; break;
-    default:            sequenceSymbolAsIndex = 3;
-    }
+    uint8_t sequenceSymbolAsIndex = encodeSymbol(sequenceSymbol);
 
-    float unprojectedMatchScore = phmmVectorAsFloat[((phmmPosition + ssvWalkforwardIndex) * PHMM_CARDINALITY) + sequenceSymbolAsIndex];
-    float projectedPhmmMatchScore = projectPhmmScoreWithMultiplier(unprojectedMatchScore, ssvScoreMultiplier);
-    int8_t matchScoreAsInt = projectedPhmmMatchScore;
-    uint8_t originalScore = accumulatedScore;
-    accumulatedScore += (int16_t)matchScoreAsInt;
+    uint32_t phmmScoreIndex = ((phmmPositionInfo.globalPosition + ssvWalkforwardIndex) * PHMM_CARDINALITY) + sequenceSymbolAsIndex;
+    int8_t matchScore = this->compressedPhmmScores->at(phmmScoreIndex);
+    accumulatedScore += (int16_t)matchScore;
 
     //if we've accumulated to a score of 0 or lower, then no use extending the hit further
-    if (accumulatedScore <= 0) {
+    if (accumulatedScore < 0) {
       return;
     }
     else if (accumulatedScore >= 256) {
-      VerifiedHit hit(sequencePosition + ssvWalkforwardIndex, sequenceNumber, phmmPosition + ssvWalkforwardIndex, hitLocatedInPhmmNumber);
+      VerifiedHit hit(sequencePosition + ssvWalkforwardIndex, sequenceNumber,
+        phmmPositionInfo.localPosition + ssvWalkforwardIndex, phmmPositionInfo.phmmIndex);
       verifiedHitList->push_back(hit);
       return;
     }
+  }
+}
+
+
+uint8_t encodeSymbol(const char symbol){
+  switch (symbol) {
+  case 'a': case 'A': return 0; break;
+  case 'c': case 'C': return 1; break;
+  case 'g': case 'G': return 2; break;
+  default:            return 3;
   }
 }
