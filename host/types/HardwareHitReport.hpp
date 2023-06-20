@@ -17,8 +17,10 @@ public:
 
   uint32_t phmmPosition;
   uint32_t sequencePassIndex;
-  uint8_t groupHitBits[GROUP_HIT_BITS_NUM_BYTES];
+  uint8_t alignmentBytes[64-8];
+  uint8_t groupHitBits[64];
   std::string toString();
+  std::string toGroupListString();
 };
 
 #endif
