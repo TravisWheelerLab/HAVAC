@@ -31,7 +31,6 @@ Havac::~Havac() {
 
 
 void Havac::loadPhmm(const std::string phmmSrc) {
-
   enum P7HmmReturnCode rc = readP7Hmm(phmmSrc.c_str(), this->p7HmmList);
   if (rc == p7HmmAllocationFailure) {
     throw std::bad_alloc();
@@ -41,10 +40,8 @@ void Havac::loadPhmm(const std::string phmmSrc) {
   }
 
   shared_ptr<PhmmPreprocessor> phmmPreprocessor = std::make_shared<PhmmPreprocessor>(this->p7HmmList, this->requiredPValue);
-
-  shared_ptr<vector<int8_t>> phmmDataPtr = phmmPreprocessor->getProcessedPhmmData();
-
-  this->hwClient->writePhmm(phmmDataPtr);
+  this->compressedPhmmScores = phmmPreprocessor->getProcessedPhmmData();
+  this->hwClient->writePhmm(compressedPhmmScores);
   this->phmmLoadedToDevice = true;
 }
 
@@ -98,7 +95,7 @@ void Havac::abortHardwareClient() {
 shared_ptr<vector<VerifiedHit>> Havac::getHitsFromFinishedRun() {
   shared_ptr<vector<HardwareHitReport>> unverifiedHitList = this->hwClient->getHitReportList();
   shared_ptr<HitVerifier> hitVerifier = std::make_shared<HitVerifier>(this->fastaVector,
-    this->p7HmmList);
+    this->p7HmmList, this->compressedPhmmScores);
 
   auto verifiedHits = hitVerifier->verify(unverifiedHitList, this->requiredPValue);
 
