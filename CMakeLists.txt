@@ -34,7 +34,7 @@ link_directories(/opt/xilinx/xrt/lib /usr/local/lib)
 add_library(havac)
 
 # set the global header that should be installed
-set_target_properties(havac PROPERTIES PUBLIC_HEADER "Havac.hpp;types/VerifiedHit.hpp")
+set_target_properties(havac PROPERTIES PUBLIC_HEADER "host/Havac.hpp")
 
 # set where the library installs to
 install(TARGETS havac
@@ -47,13 +47,9 @@ install(TARGETS havac
 target_sources(havac PRIVATE 
   ${SOURCE_DIR}/host/Havac.cpp
   ${SOURCE_DIR}/host/HavacHwClient.cpp
-  ${SOURCE_DIR}/host/HavacSSV.cpp
-  ${SOURCE_DIR}/host/types/HavacHit.cpp
-  ${SOURCE_DIR}/host/HitVerifier.cpp
   ${SOURCE_DIR}/host/phmm/PhmmPreprocessor.cpp
   ${SOURCE_DIR}/host/sequence/SequencePreprocessor.cpp
-  ${SOURCE_DIR}/host/types/HardwareHitReport.cpp
-  ${SOURCE_DIR}/host/types/VerifiedHit.cpp
+  ${SOURCE_DIR}/host/types/HavacHit.cpp
   ${SOURCE_DIR}/PhmmReprojection/PhmmReprojection.cpp
 )
 

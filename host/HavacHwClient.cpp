@@ -1,6 +1,4 @@
 #include "HavacHwClient.hpp"
-#include "HavacSSV.hpp"
-#include "types/HardwareHitReport.hpp"
 #include "../device/PublicDefines.h"
 #include <string>
 #include <cassert>

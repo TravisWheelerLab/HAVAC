@@ -1,9 +1,9 @@
 #include "Havac.hpp"
-#include "types/HavacHit.hpp"
 #include "../PhmmReprojection/PhmmReprojection.h"
 #include "phmm/PhmmPreprocessor.hpp"
 #include "sequence/SequencePreprocessor.hpp"
 
+#include <sstream>
 #include <stdexcept>
 #include <exception>
 #include <array>
@@ -189,4 +189,19 @@ vector<HavacHit> Havac::getHitsFromFinishedRun() {
 
 enum havac_cmd_state Havac::currentHardwareState() {
   return (havac_cmd_state) hwClient->getHwState();
+}
+
+HavacHit::HavacHit(const uint64_t sequencePosition, const uint32_t sequenceIndex, const uint32_t phmmPosition, const uint32_t phmmIndex)
+  :sequencePosition(sequencePosition),
+  sequenceIndex(sequenceIndex),
+  phmmPosition(phmmPosition),
+  phmmIndex(phmmIndex) {
+
+}
+
+std::string HavacHit::toString() {
+  std::stringstream stringStream;
+  stringStream << "sequence $" << this->sequenceIndex << ", position " << this->sequencePosition <<
+    "; phmm #" << this->phmmIndex << " position " << this->phmmPosition;
+  return stringStream.str();
 }

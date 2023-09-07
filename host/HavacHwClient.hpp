@@ -1,9 +1,6 @@
 #ifndef HAVAC_HW_CLIENT_HPP
 #define HAVAC_HW_CLIENT_HPP
 
-#include "types/HardwareHitReport.hpp"
-#include "HitVerifier.hpp"
-#include "types/HavacHit.hpp"
 #include <cstdint>
 #include <string>
 #include <memory>

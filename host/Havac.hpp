@@ -2,7 +2,6 @@
 #define HAVAC_HOST_HPP
 
 #include "HavacHwClient.hpp"
-#include "types/HavacHit.hpp"
 
 extern "C"{
   #include <FastaVector.h>
@@ -28,6 +27,18 @@ enum havac_cmd_state{
 
 
 const std::string xclbinSrcDefault = "impl/havac.xclbin";
+
+class HavacHit {
+public:
+  HavacHit(const uint64_t sequencePosition, const uint32_t sequenceIndex, const uint32_t phmmPosition, const uint32_t phmmIndex);
+  uint64_t sequencePosition;
+  uint32_t sequenceIndex;
+  uint32_t phmmPosition;
+  uint32_t phmmIndex;
+
+  std::string toString();
+};
+
 
 class Havac {
 public:
