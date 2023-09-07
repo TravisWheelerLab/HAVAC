@@ -91,14 +91,14 @@ void HavacHwClient::writeSequence(const vector<uint8_t>& compressedSequence) {
   }
   this->sequenceLengthInSegments = numSequenceSegments;
 
-  if(compressedSequence.size() >= 4L*1024L*1024L*1024L){
+  if (compressedSequence.size() >= 4L * 1024L * 1024L * 1024L) {
     std::stringstream ss;
     ss << "compressed sequence size must be less than 4GiB. This implies the the sequence"
-    " as 8-bit chars should be less than 16GiB in length.  length requested: "<< compressedSequence.size()<< " bytes.";
+      " as 8-bit chars should be less than 16GiB in length.  length requested: " << compressedSequence.size() << " bytes.";
     throw std::length_error(ss.str());
   }
   this->allocateBuffer(HAVAC_SEQUENCE_BUFFER_GROUP_ID, this->sequenceBuffer, compressedSequence.size());
-  
+
   try {
     const size_t bufferOffset = 0;
     const size_t compressedSequenceSize = compressedSequence.size();
