@@ -31,26 +31,69 @@ void HavacKernel(SequenceSegmentWord* sequenceSegmentMemory,
 	//the pointer values are memory partitions in RAM, and use AXI interfaces behind the scenes
 	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-interface
 
-	constexpr uint32_t PHMM_MEM_DEPTH = NUM_CELL_PROCESSORS
-			* TEST_NUM_SEQUENCE_SEGMENTS;
-	constexpr uint32_t SEQUENCE_MEM_DEPTH = (NUM_CELL_PROCESSORS
-			/ SYMBOLS_PER_SEQUENCE_SEGMENT_WORD) * TEST_NUM_SEQUENCE_SEGMENTS;
+	constexpr uint32_t PHMM_MEM_DEPTH = NUM_CELL_PROCESSORS * TEST_NUM_SEQUENCE_SEGMENTS;
+	constexpr uint32_t SEQUENCE_MEM_DEPTH = (NUM_CELL_PROCESSORS / SYMBOLS_PER_SEQUENCE_SEGMENT_WORD) * TEST_NUM_SEQUENCE_SEGMENTS;
 	constexpr uint32_t HIT_REPORT_MEM_DEPTH = 256;
 #pragma HLS INTERFACE mode = m_axi port = sequenceSegmentMemory	bundle = gmem0 depth = SEQUENCE_MEM_DEPTH	num_read_outstanding = 16 name=SequenceSegmentMemory
 #pragma HLS INTERFACE mode = m_axi port = phmmVectorMemory 		bundle = gmem1 depth = PHMM_MEM_DEPTH		num_read_outstanding = 128 name=PhmmVectorMemory
 #pragma HLS INTERFACE mode = m_axi port = hitReportMemory 		bundle = gmem0 depth = HIT_REPORT_MEM_DEPTH num_write_outstanding = 16 name=HitReportMemory
 #pragma HLS INTERFACE mode = m_axi port = hitReportCountMemory 	bundle = gmem0 depth = 1 num_write_outstanding = 16 name=HitReportCountMemory
-//#pragma HLS INTERFACE mode= ap_vld port = numHits
 
-#pragma HLS INTERFACE PORT = sequenceLengthInSegments mode = s_axilite
-#pragma HLS INTERFACE PORT = phmmLengthInVectors mode = s_axilite
-#pragma HLS aggregate variable = hitReportMemory compact = auto
+	//massage the length types into their smaller bit-length versions, might be unnecessary, but here for explicity
+	seqSegPos_t sequenceLengthAsPos_t = sequenceLengthInSegments;
+	phmmPos_t phmmLengthAsPos_t = phmmLengthInVectors;
+	HavacTopLevelDataflow(sequenceLengthAsPos_t, phmmLengthAsPos_t, sequenceSegmentMemory,
+		phmmVectorMemory, hitReportMemory, hitReportCountMemory);
+}
 
-	//aggregate the memory so we can access larger portions of the data each cycle
-	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-aggregate
+void HavacTopLevelDataflow(const seqSegPos_t sequenceLengthInSegments, const phmmPos_t phmmLengthInVectors,
+	SequenceSegmentWord* sequenceSegmentMemory, uint32_t* phmmVectorMemory,
+	uint64_t* hitReportMemory, uint32_t* hitReportCountMemory) {
 
-	hls::stream<uint32_t, NUM_HITS_STREAM_DEPTH> numHitsStream("numHitsStream");
-	ScoreQueue scoreQueue;
+	#pragma HLS DATAFLOW
+
+	//hit reporting streams. There are here because they need run asynchronously from the main design.
+	hls::stream<PositionReport, inputHitReportStreamDepth> inputPositionReportStream("inputPositionReportStream");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream0("inputHitReportGroupStream0");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream1("inputHitReportGroupStream1");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream2("inputHitReportGroupStream2");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream3("inputHitReportGroupStream3");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream4("inputHitReportGroupStream4");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream5("inputHitReportGroupStream5");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream6("inputHitReportGroupStream6");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream7("inputHitReportGroupStream7");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream8("inputHitReportGroupStream8");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream9("inputHitReportGroupStream9");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream10("inputHitReportGroupStream10");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream11("inputHitReportGroupStream11");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream12("inputHitReportGroupStream12");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream13("inputHitReportGroupStream13");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream14("inputHitReportGroupStream14");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth> inputHitReportGroupStream15("inputHitReportGroupStream15");
+
+	hls::stream<PositionReport, intermediateHitReportStreamDepth> hitReportPositionReportStream0("hitReportPositionReportStream0");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_0("hitReportGroupBitsStream0_0");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_1("hitReportGroupBitsStream0_1");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_2("hitReportGroupBitsStream0_2");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_3("hitReportGroupBitsStream0_3");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_4("hitReportGroupBitsStream0_4");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_5("hitReportGroupBitsStream0_5");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_6("hitReportGroupBitsStream0_6");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_7("hitReportGroupBitsStream0_7");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_8("hitReportGroupBitsStream0_8");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_9("hitReportGroupBitsStream0_9");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_10("hitReportGroupBitsStream0_10");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_11("hitReportGroupBitsStream0_11");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_12("hitReportGroupBitsStream0_12");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_13("hitReportGroupBitsStream0_13");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_14("hitReportGroupBitsStream0_14");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream0_15("hitReportGroupBitsStream0_15");
+
+	hls::stream<PositionReportTier1, intermediateHitReportStreamDepth> hitReportPositionReportStream1("hitReportPositionReportStream1");
+	hls::stream<ap_uint<CELLS_PER_GROUP>, intermediateHitReportStreamDepth> hitReportGroupBitsStream1("hitReportGroupBitsStream1");
+	hls::stream<HitReportTier2, intermediateHitReportStreamDepth> hitReportTier2Stream("hitReportTier2Stream");
+	hls::stream<HitReportTier3, intermediateHitReportStreamDepth> hitReportTier3Stream("hitReportTier3Stream");
+
 
 	HavacMainLoop(sequenceLengthInSegments, phmmLengthInVectors,
 			sequenceSegmentMemory, phmmVectorMemory, hitReportMemory,
