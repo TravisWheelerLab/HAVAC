@@ -125,8 +125,10 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct
 // compute the next value of the cell, and determine if it passes the implicit 256 threshold
 struct CellResult computeCellProcessor(ap_uint<8> prevScore, ap_uint<8> matchScore);
 ap_uint<8> readScoreFromScoreQueue(bool isFirstSequenceSegment, bool isLastPhmmIndex);
+void writeScoreToScoreQueue(ap_uint<8> scoreToWrite, bool isLastSequenceSegment, bool isFirstPhmmIndex);
+void generateMatchScoreList(struct MatchScoreList& matchScoreList, uint32_t currentPhmmVector, struct SequenceSegment currentSequenceSegment);
+void isFirstOrLastPhmmVector(phmmPos_t phmmVectorIndex, phmmPos_t phmmLengthInVectors, bool& isFirstPhmmVector, bool& isLastPhmmVector);
+void loadPhmmStream(uint32_t* phmmVectorMemory, hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmVectorStream, const phmmPos_t phmmLengthInVectors);
 void setPhmmFromStream(uint32_t& phmmVector, hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmVectorStream);
-void copyScalarInputs(uint32_t sequenceSegmentLengthInSegments, uint32_t &localSequenceSegmentLengthInSegments,
-	uint32_t phmmLengthInVectors, uint32_t &localPhmmLengthInVectors);
 
 #endif
