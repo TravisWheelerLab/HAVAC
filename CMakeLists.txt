@@ -49,7 +49,6 @@ target_sources(havac PRIVATE
   ${SOURCE_DIR}/host/HavacHwClient.cpp
   ${SOURCE_DIR}/host/phmm/PhmmPreprocessor.cpp
   ${SOURCE_DIR}/host/sequence/SequencePreprocessor.cpp
-  ${SOURCE_DIR}/host/types/HavacHit.cpp
   ${SOURCE_DIR}/PhmmReprojection/PhmmReprojection.cpp
 )
 
