@@ -1,5 +1,5 @@
 #include "../../Havac.hpp"
-#include "../../types/VerifiedHit.hpp"
+#include "../../types/HavacHit.hpp"
 #include <stdexcept>
 #include <memory>
 #include <vector>
@@ -26,14 +26,12 @@ int main(int argc, char** argv) {
   //initialize the RNG seed
   srand(time(NULL));
 
-
   //check to see if abort was requested.
   if (argc < 4) {
     std::cout << "error: program requires an argument for the source for the xclbin src, fasta file src, "
       "and hmm src" << std::endl;
     exit(2);
   }
-  //run the hardware
 
   std::string xclbinSrc = argv[1];
   std::string fastaSrc = argv[2];
@@ -60,14 +58,10 @@ int main(int argc, char** argv) {
   auto havacRunEnd = std::chrono::high_resolution_clock::now();
 
   auto hitVerificationStart = std::chrono::high_resolution_clock::now();
-  shared_ptr<vector<VerifiedHit>> hardwareHits = havac->getHitsFromFinishedRun();
+  vector<HavacHit> hardwareHits = havac->getHitsFromFinishedRun();
   auto hitVerificationEnd = std::chrono::high_resolution_clock::now();
 
-  std::cout << "hw generated "<< hardwareHits->size()<< " verified hits."<<std::endl;
-  if(hardwareHits->size() != 0){
-  std::cout << "final hit: "<< hardwareHits->at(hardwareHits->size()-1).toString()<<std::endl;
-
-  }
+  std::cout << "hw generated "<< hardwareHits.size()<< " verified hits."<<std::endl;
 
 
   float buildTime = float(std::chrono::duration_cast <std::chrono::microseconds> (havacBuildEnd - havacBuildStart).count());
@@ -77,11 +71,11 @@ int main(int argc, char** argv) {
   float fullTime = float(std::chrono::duration_cast <std::chrono::microseconds> (hitVerificationEnd - havacBuildStart).count());
 
   std::cout << "timing information:" << std::endl;
-  std::cout << "havac build time " << buildTime << " microseconds" << std::endl;
-  std::cout << "havac load time " << loadTime << " microseconds" << std::endl;
-  std::cout << "havac run time " << runTime << " microseconds" << std::endl;
-  std::cout << "havac verify time " << verifyTime << " microseconds" << std::endl;
-  std::cout << "total time taken " << fullTime << " microseconds" << std::endl;
+  std::cout << "havac build time " << buildTime << " microseconds (" << buildTime / 1000000.0f<< " seconds)." << std::endl;
+  std::cout << "havac load time " << loadTime << " microseconds (" << loadTime / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "havac run time " << runTime << " microseconds (" << runTime / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "havac verify time " << verifyTime << " microseconds (" << verifyTime / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "total time taken " << fullTime << " microseconds (" << fullTime / 1000000.0f << " seconds)." << std::endl;
 
 
 }
