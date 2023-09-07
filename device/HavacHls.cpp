@@ -221,16 +221,30 @@ void HavacDataflowFunction(const seqSegPos_t sequenceLengthInSegments, const phm
 
 
 //computes a full column down the DP matrix, going through the whole phmm.
-void phmmVectorLoop(uint32_t phmmLengthInVectors,
-		hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH> &sequenceSegmentStream,
-		hls::stream<uint32_t,
-		PHMM_STREAM_DEPTH> &phmmStream, bool isFirstSequenceSegment,
-		bool isLastSequenceSegment, hls::stream<struct HitReportWithTerminator,
-		HIT_REPORT_STREAM_DEPTH> &hitReportStream,
-		uint32_t sequenceSegmentIndex, ScoreQueue &scoreQueue) {
+void phmmVectorLoop(phmmPos_t phmmLengthInVectors,
+	hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH>& sequenceSegmentStream,
+	hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment,
+	bool isLastSequenceSegment, seqSegPos_t sequenceSegmentIndex,
+	hls::stream<PositionReport, inputHitReportStreamDepth>& inputPositionReportStream,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_0,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_1,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_2,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_3,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_4,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_5,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_6,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_7,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_8,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_9,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_10,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_11,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_12,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_13,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_14,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_15) {
+
 	static ap_uint<8> cellScores[NUM_CELL_PROCESSORS];
 #pragma HLS array_partition variable = cellScores complete
-
 	//we label this function as inline recursive so that all the called functions get inlined.
 	// this helps timing because Vitis HLS can put pipeline stage breaks anywhere it wants in the computation pipeline,
 	//not just between sub function calls
@@ -245,14 +259,13 @@ void phmmVectorLoop(uint32_t phmmLengthInVectors,
 	ap_uint<8> bufferedScoreQueueWrite;
 
 	struct SequenceSegment currentSequenceSegment;
-	for (uint32_t sequenceWordIndex = 0;
-			sequenceWordIndex < NUM_SEQUENCE_SEGMENT_WORDS;
+
+	sequenceConstructionLoop: for (uint8_t sequenceWordIndex = 0; sequenceWordIndex < NUM_SEQUENCE_SEGMENT_WORDS;
 			sequenceWordIndex++) {
-		currentSequenceSegment.words[sequenceWordIndex] =
-				sequenceSegmentStream.read();
+		currentSequenceSegment.words[sequenceWordIndex] = sequenceSegmentStream.read();
 	}
 
-	HavacPhmmVectorLoop: for (uint32_t phmmIndex = 0; phmmIndex < phmmLengthInVectors; phmmIndex++) {
+	HavacPhmmVectorLoop: for (phmmPos_t phmmIndex = 0; phmmIndex < phmmLengthInVectors; phmmIndex++) {
 #pragma HLS PIPELINE II=1
 		//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-pipeline
 
@@ -260,21 +273,21 @@ void phmmVectorLoop(uint32_t phmmLengthInVectors,
     _phmmIndex = phmmIndex;
     #endif
 
-		const uint32_t phmmIndexLocalCopy = phmmIndex;
-
+	const phmmPos_t phmmIndexLocalCopy = phmmIndex;
 		//create a match score list, i.e., for each cell, what score should they be given from the phmm vector?
-		MatchScoreList: struct MatchScoreList matchScoreList;
+	struct MatchScoreList matchScoreList;
 		uint32_t prefetchPhmmVector;
 		// vector of bools where a 1 indicates the the corresponding cell passed its threshold this cycle.
 		ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS];
-#pragma HLS array_partition type=complete variable=matchScoreList
-		//    #pragma HLS array_partition type=complete variable=currentPhmmVector
+	#pragma HLS array_partition variable=matchScoreList type=complete
 #pragma HLS array_partition variable=cellsPassingThreshold type=complete
 
 		bool isFirstPhmmIndex, isLastPhmmIndex;
 		isFirstOrLastPhmmVector(phmmIndexLocalCopy, phmmLengthInVectors,
 				isFirstPhmmIndex, isLastPhmmIndex);
 		setPhmmFromStream(prefetchPhmmVector, phmmStream);
+
+	bool hitReportTerminator = isLastPhmmIndex && isLastSequenceSegment;
 
 		//make a copy of the phmm vector, hopefully this will help with fanout.
 		uint32_t currentPhmmVector = prefetchPhmmVector;
@@ -287,20 +300,25 @@ void phmmVectorLoop(uint32_t phmmLengthInVectors,
     _phmmVector[3] = vectorAsApUint(32 - 1, 24);
     #endif
 
-		generateMatchScoreList(matchScoreList, currentPhmmVector,
-				currentSequenceSegment);
+	generateMatchScoreList(matchScoreList, currentPhmmVector, currentSequenceSegment);
 
-		writeScoreToScoreQueue(scoreQueue, bufferedScoreQueueWrite,
-				isLastSequenceSegment, isFirstPhmmIndex);
-		computeAllCellProcessors(cellScores, matchScoreList,
-				cellsPassingThreshold, bufferedScoreQueueRead, isFirstPhmmIndex,
-				bufferedScoreQueueWrite);
-		bufferedScoreQueueRead = readScoreFromScoreQueue(scoreQueue,
-				isFirstSequenceSegment, isLastPhmmIndex);
-		bool isFinalReportOfSegment = isLastPhmmIndex;
-		//send hit data to adjudicate hit
-		adjudicateAndWriteHitReport(hitReportStream, cellsPassingThreshold,
-				phmmIndexLocalCopy, sequenceSegmentIndex, isFinalReportOfSegment);
+	writeScoreToScoreQueue(bufferedScoreQueueWrite, isLastSequenceSegment, isFirstPhmmIndex);
+	computeAllCellProcessors(cellScores, matchScoreList, cellsPassingThreshold,
+		bufferedScoreQueueRead, isFirstPhmmIndex, bufferedScoreQueueWrite);
+
+	bufferedScoreQueueRead = readScoreFromScoreQueue(isFirstSequenceSegment, isLastPhmmIndex);
+
+	//in order to reduce the amount of work done on a single cycle, we enqueue all hit reports, even those with no hits
+	// to an input queue. this queue is then read, and any reports that actually contain a hit (or terminator) are passed
+	//along down the filter chain.
+
+	enqueueHitReportToInputQueue(sequenceSegmentIndex, phmmIndexLocalCopy, cellsPassingThreshold, hitReportTerminator,
+		inputPositionReportStream, inputHitReportGroupStream_0, inputHitReportGroupStream_1,
+		inputHitReportGroupStream_2, inputHitReportGroupStream_3, inputHitReportGroupStream_4,
+		inputHitReportGroupStream_5, inputHitReportGroupStream_6, inputHitReportGroupStream_7,
+		inputHitReportGroupStream_8, inputHitReportGroupStream_9, inputHitReportGroupStream_10,
+		inputHitReportGroupStream_11, inputHitReportGroupStream_12, inputHitReportGroupStream_13,
+		inputHitReportGroupStream_14, inputHitReportGroupStream_15);
 	}
 }
 
