@@ -97,45 +97,50 @@ int main(int argc, char** argv) {
   auto clientRunDuration = std::chrono::duration_cast<std::chrono::microseconds>(clientRunEndTime - clientRunStartTime);
   auto hitValidationDuration = std::chrono::duration_cast<std::chrono::microseconds>(hitValidationEndTime - hitValidationStartTime);
   auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(hitValidationEndTime - havacCtorStartTime);
-  std::cout << "havac object construction took " << havacCtorDuration.count() << " microseconds" << std::endl;
-  std::cout << "data load took " << dataLoadDuration.count() << " microseconds." << std::endl;
-  std::cout << "hardware client run took " << clientRunDuration.count() << " microseconds" << std::endl;
-  std::cout << "hit validation took " << hitValidationDuration.count() << " microseconds" << std::endl;
-  std::cout << "total runtime: " << totalDuration.count() << " microseconds." << std::endl;
+  std::cout << "havac object construction took " << havacCtorDuration.count() << " microseconds (" <<
+    (double)havacCtorDuration.count() / 1000000.0f << " seconods)." << std::endl;
+  std::cout << "data load took " << dataLoadDuration.count() << " microseconds (" <<
+    (double)dataLoadDuration.count() / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "hardware client run took " << clientRunDuration.count() << " microseconds (" <<
+    (double)clientRunDuration.count() / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "hit validation took " << hitValidationDuration.count() << " microseconds( " <<
+    (double)hitValidationDuration.count() / 1000000.0f << " seconds)." << std::endl;
+  std::cout << "total runtime: " << totalDuration.count() << " microseconds (" <<
+    (double)totalDuration.count() / 1000000.0f << " seconds)." << std::endl;
 
   std::cout << "hardware run finished, verifing hits" << std::endl;
-  // std::cout << "verification generated " << hardwareHits->size() << " hits." << std::endl;
+  std::cout << "verification generated " << hardwareHits->size() << " hits." << std::endl;
 
 
-  // //run the software impl
-  // //load the fasta and phmm from the files
-  // FastaVector fastaVector;
-  // P7HmmList phmmList;
-  // fastaVectorInit(&fastaVector);
-  // FastaVectorReturnCode fastaRc = fastaVectorReadFasta(seqFileSrc, &fastaVector);
-  // P7HmmReturnCode phmmRc = readP7Hmm(phmmFileSrc, &phmmList);
+  //run the software impl
+  //load the fasta and phmm from the files
+  FastaVector fastaVector;
+  P7HmmList phmmList;
+  fastaVectorInit(&fastaVector);
+  FastaVectorReturnCode fastaRc = fastaVectorReadFasta(seqFileSrc, &fastaVector);
+  P7HmmReturnCode phmmRc = readP7Hmm(phmmFileSrc, &phmmList);
 
 
-  // std::cout << "fastavector and p7hmm generated, running soft ssv" << std::endl;
-  // shared_ptr<vector<ReferenceSsvHit>> softwareHits = HitsFromSsv(&fastaVector,
-  //   &phmmList, desiredPValue);
+  std::cout << "fastavector and p7hmm generated, running soft ssv" << std::endl;
+  shared_ptr<vector<ReferenceSsvHit>> softwareHits = HitsFromSsv(&fastaVector,
+    &phmmList, desiredPValue);
 
 
-  // if(softwareHits->size() != hardwareHits->size()){
-  //   std::cout << "Error: software hits size "<< softwareHits->size()<< " did not match hardware hits size "<< hardwareHits->size()<< std::endl;
-  // }
-  // std::cout << "soft ssv finished, found " << softwareHits->size() << "hits. comparing hits..." << std::endl;
+  if (softwareHits->size() != hardwareHits->size()) {
+    std::cout << "Error: software hits size " << softwareHits->size() << " did not match hardware hits size " << hardwareHits->size() << std::endl;
+  }
+  std::cout << "soft ssv finished, found " << softwareHits->size() << "hits. comparing hits..." << std::endl;
   // for (size_t i = 0; i < softwareHits->size();i++) {
   //   std::cout << softwareHits->at(i).toString() << std::endl;
   // }
 
 
-  // compareHardwareSoftwareHits(hardwareHits, softwareHits, &phmmList, &fastaVector);
+  compareHardwareSoftwareHits(hardwareHits, softwareHits, &phmmList, &fastaVector);
 
-  // std::cout << "finished comparison" << std::endl;
+  std::cout << "finished comparison" << std::endl;
 
-  // p7HmmListDealloc(&phmmList);
-  // fastaVectorDealloc(&fastaVector);
+  p7HmmListDealloc(&phmmList);
+  fastaVectorDealloc(&fastaVector);
 }
 
 
