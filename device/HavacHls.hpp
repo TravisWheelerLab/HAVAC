@@ -51,6 +51,9 @@ void HavacKernel(SequenceSegmentWord* sequenceSegmentMemory, uint32_t sequenceLe
 	uint32_t* phmmMemory, uint32_t phmmLengthInVectors, uint64_t* hitReportMemory,
 	uint32_t* hitReportCountMemory);
 
+void HavacTopLevelDataflow(const seqSegPos_t sequenceLengthInSegments, const phmmPos_t phmmLengthInVectors,
+	SequenceSegmentWord* sequenceSegmentMemory, uint32_t* phmmVectorMemory,
+	uint64_t* hitReportMemory, uint32_t* hitReportCountMemory);
 
 void HavacMainLoop(const uint32_t sequenceLengthInSegments, const uint32_t phmmLengthInVectors,
   SequenceSegmentWord* sequenceSegmentMemory, uint32_t* phmmVectorMemory, struct HitReport* hitReportMemory,
