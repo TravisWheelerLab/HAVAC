@@ -322,11 +322,9 @@ void phmmVectorLoop(phmmPos_t phmmLengthInVectors,
 	}
 }
 
-void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS],
-		struct MatchScoreList &matchScoreList,
-		ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS],
-		ap_uint<8> leftScoreIn, bool isFirstPhmmIndex,
-		ap_uint<8> &lastScoreOut) {
+void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct MatchScoreList& matchScoreList,
+	ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], ap_uint<8> leftScoreIn, bool isFirstPhmmIndex,
+	ap_uint<8>& lastScoreOut) {
 
 #ifdef HAVAC_PER_CELL_DATA_TESTING
   _cellIndexInSegment = NUM_CELL_PROCESSORS - 1;
@@ -335,32 +333,23 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS],
 	//handle the final cell, since that'll need to save its score to lastScoreOut
 	//this seems to need to be broken out to meet II=1. otherwise, vitis tries to schedule the second access to the final cell
 	//on the next clock cycle
-	ap_uint<8> thisCellPrevScore =
-			isFirstPhmmIndex ?
-					ap_uint<8>(0) : cellScores[NUM_CELL_PROCESSORS - 2];
-	struct CellResult result = computeCellProcessor(thisCellPrevScore,
-			matchScoreList.scores[NUM_CELL_PROCESSORS - 1]);
+	ap_uint<8> thisCellPrevScore = isFirstPhmmIndex ? ap_uint<8>(0) : cellScores[NUM_CELL_PROCESSORS - 2];
+	struct CellResult result = computeCellProcessor(thisCellPrevScore, matchScoreList.scores[NUM_CELL_PROCESSORS - 1]);
 	lastScoreOut = result.cellScore;
-	cellsPassingThreshold[NUM_CELL_GROUPS - 1].set_bit(CELLS_PER_GROUP - 1,
-			result.passesThreshold);
+	cellsPassingThreshold[NUM_CELL_GROUPS - 1].set_bit(CELLS_PER_GROUP - 1, result.passesThreshold);
 
 	//iterate through the cell processors in reverse, since we need to use cell index i-1, and write to index i.
-	CellProcessorLoop: for (uint32_t cellIndex = NUM_CELL_PROCESSORS - 2;
-			cellIndex != 0; cellIndex--) {
+	CellProcessorLoop: for (uint32_t cellIndex = NUM_CELL_PROCESSORS - 2; cellIndex != 0; cellIndex--) {
 
 #ifdef HAVAC_PER_CELL_DATA_TESTING
     _cellIndexInSegment = cellIndex;
     #endif
 #pragma HLS unroll
-		ap_uint<8> thisCellPrevScore =
-				isFirstPhmmIndex ? ap_uint<8>(0) : cellScores[cellIndex - 1];
-		struct CellResult result = computeCellProcessor(thisCellPrevScore,
-				matchScoreList.scores[cellIndex]);
+		ap_uint<8> thisCellPrevScore = isFirstPhmmIndex ? ap_uint<8>(0) : cellScores[cellIndex - 1];
+		struct CellResult result = computeCellProcessor(thisCellPrevScore, matchScoreList.scores[cellIndex]);
 
-		//    struct CellResult result = computeCellProcessor(thisCellPrevScore, matchScoreList.scores[cellIndex]);
 		cellScores[cellIndex] = result.cellScore;
-		cellsPassingThreshold[cellIndex / CELLS_PER_GROUP].set_bit(
-				cellIndex % CELLS_PER_GROUP, result.passesThreshold);
+		cellsPassingThreshold[cellIndex / CELLS_PER_GROUP].set_bit(cellIndex % CELLS_PER_GROUP, result.passesThreshold);
 	}
 
 #ifdef HAVAC_PER_CELL_DATA_TESTING
