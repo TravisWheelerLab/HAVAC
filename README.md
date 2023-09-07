@@ -51,7 +51,7 @@ this will load all sequences in the fasta and all models in the .hmm file to the
 
 HAVAC can then be invoked to search the sequence collection with all the models. This can be done synchronously
 ```
-havacDriver->runHardwareClient()
+havacDriver->runHardwareClient();
 ```
 
 to force the driver to wait until the hardware is done. Alternatively, the hardware can be invoked asynchronously:
@@ -85,7 +85,7 @@ havacDriver->waitHardwareClientAsync();
 
 After the hardware is finished with its computation, the hits can be recovered via 
 ```
-vector<HavacHit> reportedHits = havacDriver->getHitsFromFinishedRun()
+vector<HavacHit> reportedHits = havacDriver->getHitsFromFinishedRun();
 ```
 
 This function resolves the hits recovered from the accelerator device to the index of the sequences and models in their corresponding files, and identifies the local position within those sequences and models. Here's what the hit reports will look like:
