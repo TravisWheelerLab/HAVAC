@@ -24,13 +24,13 @@
 
 class TestbenchHitReport {
 public:
-	TestbenchHitReport(const uint64_t reportAsU64){
-		uint64_t sequencePartitionBitMask = (1ULL<<14)-1;
-		uint64_t sequenceSegmentBitmask = (1ULL << 40)-1;
+	TestbenchHitReport(const uint64_t reportAsU64) {
+		uint64_t sequencePartitionBitMask = (1ULL << 14) - 1;
+		uint64_t sequenceSegmentBitmask = (1ULL << 40) - 1;
 		uint64_t sequencePartitionIndex = reportAsU64 & sequencePartitionBitMask;
-		uint64_t sequenceSegmentIndex = (reportAsU64 & sequenceSegmentBitmask)>>14;
+		uint64_t sequenceSegmentIndex = (reportAsU64 & sequenceSegmentBitmask) >> 14;
 		this->sequencePosition = (reportAsU64 & sequenceSegmentBitmask) >> 14;
-		this->sequencePosition = (sequenceSegmentIndex * (12*1024)) + sequencePartitionIndex;
+		this->sequencePosition = (sequenceSegmentIndex * (12 * 1024)) + sequencePartitionIndex;
 
 		this->phmmPosition = reportAsU64 >> 40;
 	}
