@@ -96,8 +96,40 @@ void HavacTopLevelDataflow(const seqSegPos_t sequenceLengthInSegments, const phm
 
 
 	HavacMainLoop(sequenceLengthInSegments, phmmLengthInVectors,
-			sequenceSegmentMemory, phmmVectorMemory, hitReportMemory,
-			numHitsStream, scoreQueue);
+		sequenceSegmentMemory, phmmVectorMemory,
+		inputPositionReportStream, inputHitReportGroupStream0, inputHitReportGroupStream1,
+		inputHitReportGroupStream2, inputHitReportGroupStream3, inputHitReportGroupStream4,
+		inputHitReportGroupStream5, inputHitReportGroupStream6, inputHitReportGroupStream7,
+		inputHitReportGroupStream8, inputHitReportGroupStream9, inputHitReportGroupStream10,
+		inputHitReportGroupStream11, inputHitReportGroupStream12, inputHitReportGroupStream13,
+		inputHitReportGroupStream14, inputHitReportGroupStream15);
+
+
+	filterInputHitReports(inputPositionReportStream, inputHitReportGroupStream0, inputHitReportGroupStream1,
+		inputHitReportGroupStream2, inputHitReportGroupStream3, inputHitReportGroupStream4,
+		inputHitReportGroupStream5, inputHitReportGroupStream6, inputHitReportGroupStream7,
+		inputHitReportGroupStream8, inputHitReportGroupStream9, inputHitReportGroupStream10,
+		inputHitReportGroupStream11, inputHitReportGroupStream12, inputHitReportGroupStream13,
+		inputHitReportGroupStream14, inputHitReportGroupStream15, hitReportPositionReportStream0,
+		hitReportGroupBitsStream0_0, hitReportGroupBitsStream0_1, hitReportGroupBitsStream0_2,
+		hitReportGroupBitsStream0_3, hitReportGroupBitsStream0_4, hitReportGroupBitsStream0_5,
+		hitReportGroupBitsStream0_6, hitReportGroupBitsStream0_7, hitReportGroupBitsStream0_8,
+		hitReportGroupBitsStream0_9, hitReportGroupBitsStream0_10, hitReportGroupBitsStream0_11,
+		hitReportGroupBitsStream0_12, hitReportGroupBitsStream0_13, hitReportGroupBitsStream0_14,
+		hitReportGroupBitsStream0_15);
+	filterHitReportTier0(hitReportPositionReportStream0,
+		hitReportGroupBitsStream0_0, hitReportGroupBitsStream0_1, hitReportGroupBitsStream0_2,
+		hitReportGroupBitsStream0_3, hitReportGroupBitsStream0_4, hitReportGroupBitsStream0_5,
+		hitReportGroupBitsStream0_6, hitReportGroupBitsStream0_7, hitReportGroupBitsStream0_8,
+		hitReportGroupBitsStream0_9, hitReportGroupBitsStream0_10, hitReportGroupBitsStream0_11,
+		hitReportGroupBitsStream0_12, hitReportGroupBitsStream0_13, hitReportGroupBitsStream0_14,
+		hitReportGroupBitsStream0_15, hitReportPositionReportStream1, hitReportGroupBitsStream1);
+	filterHitReportTier1(hitReportPositionReportStream1, hitReportGroupBitsStream1,
+		hitReportTier2Stream);
+	filterHitReportTier2(hitReportTier2Stream, hitReportTier3Stream);
+	filterHitReportTier3(hitReportTier3Stream, hitReportMemory, hitReportCountMemory);
+
+}
 
 	hitReportCountMemory[0] = numHitsStream.read();
 }
