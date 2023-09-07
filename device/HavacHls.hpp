@@ -20,21 +20,20 @@
 #define SYMBOLS_PER_SEQUENCE_SEGMENT_WORD 512
 #endif
 
-#define NUM_SEQUENCE_SEGMENT_WORDS (NUM_CELL_PROCESSORS/SYMBOLS_PER_SEQUENCE_SEGMENT_WORD)
-#if ((NUM_CELL_PROCESSORS *2) % SYMBOLS_PER_SEQUENCE_SEGMENT_WORD) != 0
-#error "bits for whole sequence segment not evenly divisible by the num seq segment words"
-#endif
+class TestbenchHitReport {
+public:
+	TestbenchHitReport(const uint64_t reportAsU64){
+		uint64_t sequencePartitionBitMask = (1ULL<<14)-1;
+		uint64_t sequenceSegmentBitmask = (1ULL << 40)-1;
+		uint64_t sequencePartitionIndex = reportAsU64 & sequencePartitionBitMask;
+		uint64_t sequenceSegmentIndex = (reportAsU64 & sequenceSegmentBitmask)>>14;
+		this->sequencePosition = (reportAsU64 & sequenceSegmentBitmask) >> 14;
+		this->sequencePosition = (sequenceSegmentIndex * (12*1024)) + sequencePartitionIndex;
 
-#define SEQUENCE_STREAM_DEPTH (2*NUM_SEQUENCE_SEGMENT_WORDS)
-
-// data structures
-//sequence segment is implemented with a wide scalar instead of array of 2-bit values because
-//the array implementation blew up utilization like CRAZY just loading the segment.
-//once num cell processors is larger than 32*64, this will need to be an array of wide scalars (likely 2 values)
-typedef ap_uint<SYMBOLS_PER_SEQUENCE_SEGMENT_WORD*2> SequenceSegmentWord;
-struct SequenceSegment {
-//    ap_uint<NUM_CELL_PROCESSORS * 2> symbols;
-	SequenceSegmentWord words[NUM_SEQUENCE_SEGMENT_WORDS];
+		this->phmmPosition = reportAsU64 >> 40;
+	}
+  uint32_t phmmPosition;
+  uint32_t sequencePosition;
 };
 
 struct PhmmVector {
