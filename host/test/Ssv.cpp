@@ -2,6 +2,7 @@
 #include "../../PhmmReprojection/PhmmReprojection.h"
 #include <cstring>
 #include <iostream>
+#include <math.h>
 
 
 shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
@@ -38,7 +39,7 @@ shared_ptr<vector<ReferenceSsvHit>> HitsFromSsv(FastaVector* fastaVector,
         for (uint32_t phmmPosition = 0; phmmPosition < phmmLength; phmmPosition++) {
           float matchScoreFromPhmmFile = phmmMatchEmissionScores[(phmmPosition * cardinality) + symbolEncoding];
           float projectedMatchScore = emissionScoreToProjectedScore(matchScoreFromPhmmFile, scoreMultiplier);
-          int8_t projectedMatchScoreAsInt = projectedMatchScore;
+          int8_t projectedMatchScoreAsInt = round(projectedMatchScore);
           uint8_t tempCellValue = cellScores->data()[phmmPosition]; //store what was here before the summation so we can give it to the next cell.
           int16_t cellSumResults = (int16_t)previousCellValue + (int16_t)projectedMatchScoreAsInt;
           previousCellValue = tempCellValue;
