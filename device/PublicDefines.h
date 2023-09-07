@@ -1,6 +1,9 @@
 #ifndef HAVAC_HLS_PUBLIC_DEFINES_H
 #define HAVAC_HLS_PUBLIC_DEFINES_H
 
+
+#include <ap_int.h>
+
 // this file contains definitions that may be useful for host code and test code, as well as device code.
 //alternatively could be 64 for a 16B hit report
 
@@ -18,10 +21,9 @@
 #endif
 #define NUM_CELL_PROCESSORS (NUM_CELL_GROUPS *CELLS_PER_GROUP)
 
+#define TEST_NUM_SEQUENCE_SEGMENTS 3
 
-#define TEST_NUM_SEQUENCE_SEGMENTS 2
-
-//deprecated, since I'm not going to support Amino Acids and you cant make me
-#define SCORES_PER_PHMM_VECTOR 4
+typedef ap_uint<24> phmmPos_t;	//type large enough to index any position on the phmm stored on hardware (limited by ScoreQueue size)
+typedef ap_uint<26> seqSegPos_t;	//type large enough to index any sequence segment stored on hardware (limited by 4GiB mem limit)
 
 #endif
