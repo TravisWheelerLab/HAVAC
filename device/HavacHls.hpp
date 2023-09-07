@@ -14,6 +14,7 @@
 #define PHMM_STREAM_DEPTH 64
 #define HIT_REPORT_STREAM_DEPTH 64
 #define NUM_HITS_STREAM_DEPTH 2
+#define SCORES_PER_PHMM_VECTOR 4
 
 
 class TestbenchHitReport {
