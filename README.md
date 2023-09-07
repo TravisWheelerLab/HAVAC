@@ -31,6 +31,8 @@ make
 make install
 ```
 
+### Searching with HAVAC
+
 To use the HAVAC driver, create an object of the Havac type with your device index (usually 0), the p-value to search with, and the src for the .xclbin file.
 ```
 uint32_t deviceIndex = 0; //this may be a different index if you have multiple FPGA cards.
