@@ -2,7 +2,8 @@
 #define HAVAC_HOST_HPP
 
 #include "HavacHwClient.hpp"
-#include "HitVerifier.hpp"
+#include "types/HavacHit.hpp"
+
 extern "C"{
   #include <FastaVector.h>
   #include <p7HmmReader.h>
@@ -41,30 +42,29 @@ public:
   Havac(Havac&& havac) = delete;
   Havac(Havac& havac) = delete;
   ~Havac();
-
-  /// @brief load the sequence data from the given fasta file source to the hardware client
+  /// @brief load the sequence data from the 
+  ///   given fasta file source to the hardware client
   /// @param fastaSrc file location to load
   void loadSequence(const std::string fastaSrc);
-
-  /// @brief load the phmm from the given file src to the hardware client
+  /// @brief load the phmm from the given file src 
+  ///   to the hardware client
   /// @param phmmSrc location of file to read
   void loadPhmm(const std::string phmmSrc);
-
-  /// @brief run the HAVAC hardware client synchronously, and return when finished
+  /// @brief run the HAVAC hardware client 
+  ///   synchronously, and return when finished
   void runHardwareClient();
-
-  /// @brief run the HAVAC hardware client, and return immediately. 
+  /// @brief run the HAVAC hardware client, and 
+  ///   return immediately. 
   void runHardwareClientAsync();
-
-  /// @brief while HAVAC client is running, wait until it has finished
+  /// @brief while HAVAC client is running, wait
+  ///   until it has finished
   void waitHardwareClientAsync();
-
   /// @brief abort the current run of HAVAC
   void abortHardwareClient();
-
   /// @brief retrieve the hits from a finished HAVAC run
-  /// @return the list of hits, after having been verified via bounded reference SSV checks.
-  shared_ptr<vector<VerifiedHit>> getHitsFromFinishedRun();
+  /// @return the list of hits, after having been verified 
+  ///   via bounded reference SSV checks.
+  vector<HavacHit> getHitsFromFinishedRun();
 
   /// @brief gets the current hardware state
   /// @return state of the hardware, possible returns are:
@@ -93,5 +93,6 @@ private:
 
   std::string havacXclbinFileSrc;
   const std::string havacKernelName = "HavacKernel";
+  vector<uint32_t> generatePhmmLenPrefixSums();
 };
 #endif
