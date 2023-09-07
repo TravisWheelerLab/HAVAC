@@ -51,7 +51,7 @@ float findThreshold256ScalingFactor(const struct P7Hmm* const phmm, const float 
       nStateEscapePenalty + bStateToAnyMStatePenalty + transitionEToC);
 
     float backgroundLoopProbability = maxLength / (maxLength + 1); //background loop probability
-    float backgroundLoopPenaltyTotal = maxLength * log(backgroundLoopProbability);  //total length penalty for the max sequence length background, change to bg_loop total or something
+    float backgroundLoopPenaltyTotal = maxLength * log(backgroundLoopProbability);  //total length penalty for the max sequence length background
     float backgroundMovePenalty = log(1.0 - backgroundLoopProbability);
     float backgroundScore = backgroundLoopPenaltyTotal + backgroundMovePenalty;
 
@@ -85,36 +85,61 @@ float findThreshold256ScalingFactor(const struct P7Hmm* const phmm, const float 
   // return 256/sc_thresh; 
 }
 
-inline float emissionScoreToProjectedScore(const float emissionScore, const float scoreMultiplier) {
-  //this code takes a value from negative natural log likelihood space, and converts it
-  //into a bits score scaled such that the threshold score will be 256.
-  //this is a simplification of the following function: 
-  //log2((exp(-emissionScore) / (1/4))) * multiplier;
-  // where the 1/4 is the background distribution (even across 4 nucleotides)
-  //let's rewrite this so we can simplify: 
-  //y = log2(e^-s / (1/4) ) * m
-  //y = log2(4e^-s ) * m
-  //y = (log2(4) + log2(e^-s) ) * m
-  //y = (log2(4) - s*log2(e)) * m
-  //y = (2 - s*log2(e)) * m
-  //y = -log2(e) * (s -(2/log2(e)) ) * m
-
-  // return log2((exp(-emissionScore)/.25))*multiplier;  //this is equivalent to the following
+float emissionScoreToProjectedScore(const float emissionScore, const float scoreMultiplier) {
+  //this exists as legacy code for the reference comparison test
+  // //y = -log2(e) * (s -(2/log2(e)) ) * m
+  // // return log2((exp(-emissionScore) / .25)) * scoreMultiplier;  //this is equivalent to the following
+  // //(2 - s*log2(e)) * \tau
+  // 2*tau - s*(log2(e)*tau)
+  // float projectedScore = constantAlpha - (emissionScore*constantBeta);
   const float LOG2_E = 1.44269504089;
   float projectedScore = -LOG2_E * (emissionScore - (2 / LOG2_E)) * scoreMultiplier;
+  projectedScore = round(projectedScore);
+
+  //saturate the score to -128 to 127 range
+  if (projectedScore < -128) {
+    projectedScore = -128;
+  }
+  if (projectedScore > 127) {
+    projectedScore = 127;
+  }
   return projectedScore;
 }
 
 void p7HmmProjectForThreshold256(const struct P7Hmm* const phmm, const float desiredPValue, int8_t* outputArray) {
-
   float modelLength = phmm->header.modelLength;
   float scoreMultiplier = findThreshold256ScalingFactor(phmm, desiredPValue);
+
+  const float LOG2_E = 1.44269504089;
+  const float constantAlpha = 2 * scoreMultiplier;
+  const float constantBeta = LOG2_E * scoreMultiplier;
+
   uint32_t alphabetCardinality = p7HmmGetAlphabetCardinality(phmm);
-
   for (size_t i = 0; i < alphabetCardinality * modelLength; i++) {
-    float valueFromHmmFile = phmm->model.matchEmissionScores[i];
-    float projectedScore = emissionScoreToProjectedScore(valueFromHmmFile, scoreMultiplier);
+    //this code takes a value from negative natural log likelihood space, and converts it
+    //into a bits score scaled such that the threshold score will be 256.
+    //this is a simplification of the following function: 
+    //log2((exp(-emissionScore) / (1/4))) * multiplier;
+    // where the 1/4 is the background distribution (even across 4 nucleotides)
+    //let's rewrite this so we can simplify: 
+    //y = log2(e^-s / (1/4) ) * m
+    //y = log2(4e^-s ) * m
+    //y = (log2(4) + log2(e^-s) ) * m
+    //y = (log2(4) - s*log2(e)) * m
+    //y = (2 - s*log2(e)) * m
+    // y = 2m - s*m*log2(e)
+    //2m and log2(e)*m  can be constants in the loop, so we've reduced this to a single multiplication and a subtraction
+    //here 2m and log2(e)*m are called constantAlpha and constantBeta respectively.
+    float projectedScore = constantAlpha - (phmm->model.matchEmissionScores[i] * constantBeta);
+    projectedScore = round(projectedScore);
 
-    outputArray[i] = round(projectedScore);
+    //saturate the score to -128 to 127 range
+    if(projectedScore < -128){
+      projectedScore = -128;
+    }
+    if(projectedScore > 127){
+      projectedScore = 127;
+    }
+    outputArray[i] = projectedScore;
   }
 }
