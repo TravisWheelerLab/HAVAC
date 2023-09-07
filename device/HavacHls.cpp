@@ -131,15 +131,42 @@ void HavacTopLevelDataflow(const seqSegPos_t sequenceLengthInSegments, const phm
 
 }
 
-	hitReportCountMemory[0] = numHitsStream.read();
+//main computation loop for HAVAC, each iteration computes a wide column down the Dynamic Programming matrix.
+void HavacMainLoop(const seqSegPos_t sequenceLengthInSegments, const phmmPos_t phmmLengthInVectors,
+	SequenceSegmentWord* sequenceSegmentMemory, uint32_t* phmmVectorMemory,
+	hls::stream<PositionReport, inputHitReportStreamDepth>& inputPositionReportStream,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_0,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_1,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_2,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_3,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_4,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_5,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_6,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_7,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_8,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_9,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_10,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_11,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_12,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_13,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_14,
+	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_15) {
+
+HavacSequenceSegmentLoop: for (seqSegPos_t sequenceSegmentIndex = 0;
+	sequenceSegmentIndex < sequenceLengthInSegments; sequenceSegmentIndex++) {
+	HavacDataflowFunction(sequenceLengthInSegments, phmmLengthInVectors,
+		sequenceSegmentMemory, phmmVectorMemory, sequenceSegmentIndex,
+		inputPositionReportStream, inputHitReportGroupStream_0, inputHitReportGroupStream_1,
+		inputHitReportGroupStream_2, inputHitReportGroupStream_3, inputHitReportGroupStream_4,
+		inputHitReportGroupStream_5, inputHitReportGroupStream_6, inputHitReportGroupStream_7,
+		inputHitReportGroupStream_8, inputHitReportGroupStream_9, inputHitReportGroupStream_10,
+		inputHitReportGroupStream_11, inputHitReportGroupStream_12, inputHitReportGroupStream_13,
+		inputHitReportGroupStream_14, inputHitReportGroupStream_15);
+}
 }
 
-void HavacDataflowFunction(const uint32_t sequenceLengthInSegments,
-		const uint32_t phmmLengthInVectors,
-		SequenceSegmentWord *sequenceSegmentMemory, uint32_t *phmmVectorMemory,
-		struct HitReport *hitReportMemory,
-		hls::stream<uint32_t, NUM_HITS_STREAM_DEPTH> &numHitsStream,
-		uint32_t sequenceSegmentIndex, ScoreQueue &scoreQueue) {
+
+
 	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-dataflow
 #pragma HLS DATAFLOW
 
