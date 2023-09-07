@@ -94,8 +94,7 @@ protected:
   // static const uint64_t sequenceAllocationSizeInBytes = 3UL * 1024UL * 1024UL * 1024UL;  //3GiB
   // static const uint32_t phmmAllocationSizeInBytes = 1UL * 1024UL * 1024UL;         //1MiB
   //HAVAC supports 1024*1024 positions in the phmm, so the allocated size should be 4x that (1byte/symbol/position)
-  static const uint32_t hitReportAllocationSizeInBytes = 255UL * 1024UL * 1024UL;     //255MiB
-
+  static const uint64_t hitReportAllocationSizeInBytes =  14*256UL * 1024UL * 1024UL;     //3.5GiB
   /// @brief attempts to generate the kernel for the given .xclbin file and kernel name
   /// @param xclbinFileSrc source where the .xclbin file is located
   /// @param havacKernelName "name" of the kernel, XRT docs don't specify further than this.
