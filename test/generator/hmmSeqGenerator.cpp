@@ -62,8 +62,6 @@ struct HmmSeqPair generateRandomHmmSeqPair(const uint32_t seqLength, const bool 
   return hmmSeqPair;
 }
 
-
-
 void generateRandomHmmSeqPairToFiles(const uint32_t seqLength, const char* seqSrc, const char* phmmSrc,
   const bool addFlankingRegions, float sequenceMutationSubProbability) {
   char* sequence = (char*)malloc(seqLength + 1); //alloc an additiona byte for null terminator
@@ -102,8 +100,6 @@ void randomlyAssignSequence(char* sequence, const uint32_t seqLength) {
   }
   //null terminate the string
   sequence[seqLength] = 0;
-
-  printf("generated sequence %s\n", sequence);
 }
 
 
@@ -202,8 +198,6 @@ void hmmSequenceGeneratorCleanupTempFiles(void) {
   remove(tmpFastaFileSrc);
   remove(outputHmmFileSrc);
 }
-
-
 
 void mutateSequenceWithIndels(char** sequence, const uint32_t seqLength, const float subProbability, const float indelProbability) {
   std::vector<char> newSequence;
