@@ -23,7 +23,5 @@
 
 #define TEST_NUM_SEQUENCE_SEGMENTS 3
 
-typedef ap_uint<24> phmmPos_t;	//type large enough to index any position on the phmm stored on hardware (limited by ScoreQueue size)
-typedef ap_uint<26> seqSegPos_t;	//type large enough to index any sequence segment stored on hardware (limited by 4GiB mem limit)
 
 #endif
