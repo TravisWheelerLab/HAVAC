@@ -7,7 +7,6 @@
 #include <iostream>
 #include <ap_int.h>
 #include "PublicDefines.h"
-#include "ScoreQueue.hpp"
 #include "HitReporting.hpp"
 #include "Sequence.hpp"
 
