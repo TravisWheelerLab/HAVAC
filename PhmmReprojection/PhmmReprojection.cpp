@@ -59,16 +59,8 @@ float findThreshold256ScalingFactor(const struct P7Hmm* const phmm, const float 
       (scoreRequiredForFullModelPvalue * HAVAC_NAT_LOG_2) + backgroundScore - coreModelAdjustment;
     // that's in nats; let's shift to bits
     float thresholdScoreInBits = thresholdScoreInNats / HAVAC_NAT_LOG_2;
-    printf("pValue: %f, mu: %f, lambda: %f, MAXL: %u, modelLen %u\n", pValue, mu, lambda, (uint32_t)maxLength, (uint32_t)modelLength);
-    printf("gumbelInverse: %f, nStateLoopPenalty: %f, nStateLoopPenaltyTotal: %f,\n nStateEscapePenalty: %f,"
-      "bStateToAnyMStatePenalty: %f, transitionEToC: %f, coreModelAdjustment: %f\n", scoreRequiredForFullModelPvalue,
-      nStateLoopPenalty, nStateLoopPenaltyTotal, nStateEscapePenalty, bStateToAnyMStatePenalty, transitionEToC, coreModelAdjustment);
-    printf("backgroundLoopProbability: %f, backgroundLoopPenaltyTotal: %f, backgroundMovePenalty: %f, backgroundScore: %f\n",
-      backgroundLoopProbability, backgroundLoopPenaltyTotal, backgroundMovePenalty, backgroundScore);
-
 
     float scaleFactor = 256.0f / thresholdScoreInBits; //a hit should be triggered if a cell hits 256 (causes an 8-bit int overflow)
-    printf("threshold (nats): %f, threshold (bits): %f, scalingFactor:: %f\n", thresholdScoreInNats, thresholdScoreInBits, scaleFactor);
 
     return scaleFactor;
 
