@@ -48,8 +48,8 @@ struct MatchScoreList {
 
 // function prototypes
 void HavacKernel(SequenceSegmentWord* sequenceSegmentMemory, uint32_t sequenceLengthInSegments,
-  uint32_t* phmmMemory, uint32_t phmmLengthInVectors, struct HitReport* hitReportMemory,
-  uint32_t *hitReportCountMemory);
+	uint32_t* phmmMemory, uint32_t phmmLengthInVectors, uint64_t* hitReportMemory,
+	uint32_t* hitReportCountMemory);
 
 
 void HavacMainLoop(const uint32_t sequenceLengthInSegments, const uint32_t phmmLengthInVectors,

@@ -21,10 +21,10 @@ void copyScalarInputs(const uint32_t sequenceSegmentIndex,
 
 //top level function that is invoked to run HAVAC. This project uses Vitis HLS, please read the documentation for this tech.
 //https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/Getting-Started-with-Vitis-HLS
-void  HavacKernel(SequenceSegmentWord *sequenceSegmentMemory,
-		uint32_t sequenceLengthInSegments, uint32_t *phmmVectorMemory,
-		uint32_t phmmLengthInVectors, struct HitReport *hitReportMemory,
-		uint32_t *hitReportCountMemory) {
+void HavacKernel(SequenceSegmentWord* sequenceSegmentMemory,
+	uint32_t sequenceLengthInSegments, uint32_t* phmmVectorMemory,
+	uint32_t phmmLengthInVectors, uint64_t* hitReportMemory,
+	uint32_t* hitReportCountMemory) {
 	// note: bundle names should be all lowercase
 	// depth is just a simulation suggestion, for largest fifo needed for co-simulation
 	//seq and phmm lengths are scalars, so they are set via the axilite interface
