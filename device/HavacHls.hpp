@@ -8,6 +8,8 @@
 #include <ap_int.h>
 #include "PublicDefines.h"
 #include "ScoreQueue.hpp"
+#include "HitReporting.hpp"
+#include "Sequence.hpp"
 
 #define PHMM_STREAM_DEPTH 64
 #define HIT_REPORT_STREAM_DEPTH 64
