@@ -186,19 +186,20 @@ uint32_t HavacHwClient::getNumHits() {
   return numHits;
 }
 
-shared_ptr<vector<HardwareHitReport>> HavacHwClient::getHitReportList() {
+vector<uint64_t> HavacHwClient::getHitList() {
   uint32_t numHits = this->getNumHits();
-  shared_ptr<vector<HardwareHitReport>> hitReportList =
-    std::make_shared<vector<HardwareHitReport>>(numHits);
+  printf("client reported %u hits\n", numHits);
+  fflush(stdout);
+  vector<uint64_t> hitsAsU64(numHits);
 
   try {
     this->hitReportBuffer->sync(XCL_BO_SYNC_BO_FROM_DEVICE);
-    hitReportBuffer->read(hitReportList->data(), sizeof(HardwareHitReport) * numHits, 0);
+    hitReportBuffer->read(hitsAsU64.data(), sizeof(uint64_t) * numHits, 0);
   }
   catch (std::exception&) {
     std::cerr << "ERROR: unable to read hit reports from hardware client" << std::endl;
     throw;
   }
 
-  return hitReportList;
+  return hitsAsU64;
 }
