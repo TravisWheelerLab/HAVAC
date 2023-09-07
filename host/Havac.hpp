@@ -26,7 +26,7 @@ enum havac_cmd_state{
 };
 
 
-const std::string xclbinSrcDefault = "impl/havac.xclbin";
+const std::string xclbinSrcDefault = "../device/bin/havac.xclbin";
 
 class HavacHit {
 public:
@@ -35,7 +35,6 @@ public:
   uint32_t sequenceIndex;
   uint32_t phmmPosition;
   uint32_t phmmIndex;
-
   std::string toString();
 };
 
