@@ -4,7 +4,7 @@ CXXFLAGS_DEBUG = -ggdb -fsanitize=address -fno-omit-frame-pointer -static-libstd
 LIBS =  -L../build/ -L../../../build/ -lhavac -L/opt/xilinx/xrt/lib -lxrt_coreutil -luuid -lfastavector \
 	-lP7HmmReader -Wl,-rpath,/opt/xilinx/xrt/lib -L/usr/local/lib
 
-SRCS = ../../../test/generator/hmmSeqGenerator.cpp ../../../PhmmReprojection/PhmmReprojection.cpp \
+SRCS = ../../../test/generator/hmmSeqGenerator.cpp  \
 	multiInputTest.cpp ../Ssv.cpp
 
 OBJS = $(SRCS:.cpp=.o)
