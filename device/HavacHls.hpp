@@ -15,12 +15,6 @@
 #define HIT_REPORT_STREAM_DEPTH 64
 #define NUM_HITS_STREAM_DEPTH 2
 
-//HAVAC_TESTING is defined in PublicDefines.h, if it's defined at all
-#ifdef HAVAC_TESTING
-#define SYMBOLS_PER_SEQUENCE_SEGMENT_WORD 32
-#else
-#define SYMBOLS_PER_SEQUENCE_SEGMENT_WORD 512
-#endif
 
 class TestbenchHitReport {
 public:
