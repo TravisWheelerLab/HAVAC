@@ -416,85 +416,8 @@ struct CellResult computeCellProcessor(ap_uint<8> prevScore,
   #endif
 
 	return result;
-
 }
 
-//reads the 'cellsPassingThreshold' array of bools, groups them into hit groups, and if any of the cells in any hit group asserted,
-//create a hit report and write it to the hit report stream.
-void adjudicateAndWriteHitReport(
-		hls::stream<struct HitReportWithTerminator, HIT_REPORT_STREAM_DEPTH> &hitReportStream,
-		ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS],
-		uint32_t phmmIndex, uint32_t sequenceIndex, bool isFinalReportOfSegment) {
-#pragma HLS pipeline II=1
-
-	ap_uint<CELLS_PER_GROUP> cellsPassingThresholdCopy[NUM_CELL_GROUPS];
-	uint32_t phmmIndexCopy = phmmIndex;
-	uint32_t sequenceIndexCopy = sequenceIndex;
-	bool isFinalReportCopy = isFinalReportOfSegment;
-	for (uint16_t i = 0; i < NUM_CELL_GROUPS; i++) {
-#pragma HLS unroll
-		cellsPassingThresholdCopy[i] = cellsPassingThreshold[i];
-	}
-
-	ap_uint<NUM_CELL_GROUPS> groupsPassingThreshold;
-	for (uint16_t i = 0; i < NUM_CELL_GROUPS; i++) {
-#pragma HLS unroll
-		groupsPassingThreshold.set_bit(i,
-				cellsPassingThresholdCopy[i].or_reduce());
-	}
-
-	if (groupsPassingThreshold.or_reduce() || isFinalReportCopy) {
-		struct HitReport hitReport = { phmmIndexCopy, sequenceIndexCopy,
-				groupsPassingThreshold };
-		struct HitReportWithTerminator hitReportWithTerminator = { hitReport,
-				isFinalReportCopy };
-		hitReportStream.write(hitReportWithTerminator);
-	}
-}
-
-//todo: this is causing warning HLS 200-1449 because of the while loop relying on the count from the prev thing in the dataflow
-void writeHitsToMemory(struct HitReport *hitReportMemory,
-		hls::stream<struct HitReportWithTerminator, HIT_REPORT_STREAM_DEPTH> &hitReportStream,
-		hls::stream<uint32_t, NUM_HITS_STREAM_DEPTH> &numHitsStream,
-		bool isFirstSequenceSegment, bool isLastSequenceSegment) {
-	bool terminatorReceived = false;
-	static uint32_t numHits;
-
-	if (isFirstSequenceSegment) {
-		numHits = 0;
-	}
-
-	while (!terminatorReceived) {
-#pragma HLS PIPELINE II=2
-		struct HitReportWithTerminator tempHitReport = hitReportStream.read();
-#pragma HLS AGGREGATE variable=tempHitReport
-		if (tempHitReport.terminator) {
-			terminatorReceived = true;
-		}
-		if (tempHitReport.hitReport.groupsPassingThreshold.or_reduce()) {
-			struct HitReport baseHitReport = tempHitReport.hitReport;
-#pragma hls aggregate variable=baseHitReport
-			hitReportMemory[numHits++] = baseHitReport;
-		}
-	}
-	if (isLastSequenceSegment) {
-		numHitsStream.write(numHits);
-	}
-}
-
-void loadSequenceSegmentStream(SequenceSegmentWord *sequenceSegmentMemory,
-		hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH> &sequenceSegmentStream,
-		uint32_t sequenceSegmentIndex) {
-	uint32_t baseSequenceWordOffset = sequenceSegmentIndex
-			* NUM_SEQUENCE_SEGMENT_WORDS;
-	for (uint8_t sequenceSegmentWordIndex = 0;
-			sequenceSegmentWordIndex < NUM_SEQUENCE_SEGMENT_WORDS;
-			sequenceSegmentWordIndex++) {
-		uint32_t sequenceOffset = baseSequenceWordOffset
-				+ sequenceSegmentWordIndex;
-		sequenceSegmentStream << sequenceSegmentMemory[sequenceOffset];
-	}
-}
 
 //generates the list of match scores for all cells in the pipeline.
 //That is, for every cell processor, find the value from the phmm to add for that cell.
