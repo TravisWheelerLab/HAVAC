@@ -36,18 +36,6 @@ struct PhmmVector {
   ap_uint<8> scores[SCORES_PER_PHMM_VECTOR];
 };
 
-
-struct HitReport {
-  uint32_t phmmIndex;
-  uint32_t sequenceIndex;
-  ap_uint<NUM_CELL_GROUPS> groupsPassingThreshold;
-};
-
-struct HitReportWithTerminator{
-	struct HitReport hitReport;
-	bool terminator;
-};
-
 struct CellResult {
   ap_uint<8> cellScore;
   bool passesThreshold;
