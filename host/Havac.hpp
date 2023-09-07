@@ -48,7 +48,7 @@ public:
   /// @param requiredPValue p value that would cause a hit to be registered. If the p value needs to be changed for some reason,
   /// just make another Havac object
   /// @param xclbinSrc 
-  Havac(const uint32_t deviceIndex = 0, const float requiredPValue = 0.05f, const std::string xclbinSrc = xclbinSrcDefault);
+  Havac(const uint32_t deviceIndex = 0, const float requiredPValue = 0.02f, const std::string xclbinSrc = xclbinSrcDefault);
   Havac(Havac&& havac) = delete;
   Havac(Havac& havac) = delete;
   ~Havac();
