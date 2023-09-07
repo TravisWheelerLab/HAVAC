@@ -29,22 +29,22 @@ public:
 
 		this->phmmPosition = reportAsU64 >> 40;
 	}
-  uint32_t phmmPosition;
-  uint32_t sequencePosition;
+	uint32_t phmmPosition;
+	uint32_t sequencePosition;
 };
 
 struct PhmmVector {
-  ap_uint<8> scores[SCORES_PER_PHMM_VECTOR];
+	ap_uint<8> scores[SCORES_PER_PHMM_VECTOR];
 };
 
 struct CellResult {
-  ap_uint<8> cellScore;
-  bool passesThreshold;
+	ap_uint<8> cellScore;
+	bool passesThreshold;
 };
 
 
 struct MatchScoreList {
-  ap_uint<8> scores[NUM_CELL_PROCESSORS];
+	ap_uint<8> scores[NUM_CELL_PROCESSORS];
 };
 
 // function prototypes
@@ -98,7 +98,7 @@ void HavacDataflowFunction(const seqSegPos_t sequenceLengthInSegments, const phm
 	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_15);
 
 void phmmVectorLoop(phmmPos_t phmmLengthInVectors, hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH>& sequenceSegmentStream,
-		hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment, bool isLastSequenceSegment,
+	hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmStream, bool isFirstSequenceSegment, bool isLastSequenceSegment,
 	seqSegPos_t sequenceSegmentIndex,
 	hls::stream<PositionReport, inputHitReportStreamDepth>& inputPositionReportStream,
 	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_0,
@@ -119,8 +119,8 @@ void phmmVectorLoop(phmmPos_t phmmLengthInVectors, hls::stream<SequenceSegmentWo
 	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_15);
 
 void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct MatchScoreList& matchScoreList,
-  ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], ap_uint<8> leftScoreIn,
-  bool isFirstPhmmIndex, ap_uint<8>& lastScoreOut);
+	ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], ap_uint<8> leftScoreIn,
+	bool isFirstPhmmIndex, ap_uint<8>& lastScoreOut);
 
 // compute the next value of the cell, and determine if it passes the implicit 256 threshold
 struct CellResult computeCellProcessor(ap_uint<8> prevScore, ap_uint<8> matchScore);

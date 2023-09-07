@@ -1,8 +1,4 @@
 #include "HavacHls.hpp"
-#include "ScoreQueue.hpp"
-#include "hls_print.h"
-//#define AP_INT_MAX_W 12288
-//#include "ap_int.h"
 
 #ifdef HAVAC_PER_CELL_DATA_TESTING
 #include "../test/byCellComparator/byCellComparator.hpp"
@@ -16,8 +12,8 @@ static int8_t _phmmVector[4];
 static uint8_t _symbols[NUM_CELL_PROCESSORS];
 #endif
 
-void copyScalarInputs(const uint32_t sequenceSegmentIndex,
-		uint32_t &localSequenceSegmentIndex);
+
+hls::stream<ap_uint<8>, SCORE_QUEUE_SIZE> scoreQueueStream("scoreQueueStream");
 
 //top level function that is invoked to run HAVAC. This project uses Vitis HLS, please read the documentation for this tech.
 //https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/Getting-Started-with-Vitis-HLS
@@ -34,10 +30,10 @@ void HavacKernel(SequenceSegmentWord* sequenceSegmentMemory,
 	constexpr uint32_t PHMM_MEM_DEPTH = NUM_CELL_PROCESSORS * TEST_NUM_SEQUENCE_SEGMENTS;
 	constexpr uint32_t SEQUENCE_MEM_DEPTH = (NUM_CELL_PROCESSORS / SYMBOLS_PER_SEQUENCE_SEGMENT_WORD) * TEST_NUM_SEQUENCE_SEGMENTS;
 	constexpr uint32_t HIT_REPORT_MEM_DEPTH = 256;
-#pragma HLS INTERFACE mode = m_axi port = sequenceSegmentMemory	bundle = gmem0 depth = SEQUENCE_MEM_DEPTH	num_read_outstanding = 16 name=SequenceSegmentMemory
-#pragma HLS INTERFACE mode = m_axi port = phmmVectorMemory 		bundle = gmem1 depth = PHMM_MEM_DEPTH		num_read_outstanding = 128 name=PhmmVectorMemory
-#pragma HLS INTERFACE mode = m_axi port = hitReportMemory 		bundle = gmem0 depth = HIT_REPORT_MEM_DEPTH num_write_outstanding = 16 name=HitReportMemory
-#pragma HLS INTERFACE mode = m_axi port = hitReportCountMemory 	bundle = gmem0 depth = 1 num_write_outstanding = 16 name=HitReportCountMemory
+	#pragma HLS INTERFACE mode = m_axi port = sequenceSegmentMemory	bundle = gmem0 depth = SEQUENCE_MEM_DEPTH	num_read_outstanding = 16 name=SequenceSegmentMemory
+	#pragma HLS INTERFACE mode = m_axi port = phmmVectorMemory 		bundle = gmem1 depth = PHMM_MEM_DEPTH		num_read_outstanding = 128 name=PhmmVectorMemory
+	#pragma HLS INTERFACE mode = m_axi port = hitReportMemory 		bundle = gmem0 depth = HIT_REPORT_MEM_DEPTH num_write_outstanding = 16 name=HitReportMemory
+	#pragma HLS INTERFACE mode = m_axi port = hitReportCountMemory 	bundle = gmem0 depth = 1 num_write_outstanding = 16 name=HitReportCountMemory
 
 	//massage the length types into their smaller bit-length versions, might be unnecessary, but here for explicity
 	seqSegPos_t sequenceLengthAsPos_t = sequenceLengthInSegments;
@@ -191,22 +187,22 @@ void HavacDataflowFunction(const seqSegPos_t sequenceLengthInSegments, const phm
 	#endif
 
 	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-dataflow
-#pragma HLS DATAFLOW
+	#pragma HLS DATAFLOW
 
 	//streams to act as producer/consumer models to more efficiently read and write data to/from RAM
 	hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH> sequenceSegmentStream("sequenceStream");
 	hls::stream<uint32_t, PHMM_STREAM_DEPTH> phmmStream("phmmStream");
-#pragma HLS DISAGGREGATE variable= sequenceSegmentStream
-#pragma HLS array_partition variable=sequenceSegmentStream type=complete
+	#pragma HLS DISAGGREGATE variable= sequenceSegmentStream
+	#pragma HLS array_partition variable=sequenceSegmentStream type=complete
 
 	//determine if this the first or last sequence segment
 	loadSequenceSegmentStream(sequenceSegmentMemory, sequenceSegmentStream,
-			sequenceSegmentIndex);
+		sequenceSegmentIndex);
 	loadPhmmStream(phmmVectorMemory, phmmStream, phmmLengthInVectors);
 
 	bool isFirstSequenceSegment, isLastSequenceSegment;
 	isFirstOrLastSequenceSegment(sequenceSegmentIndex, sequenceLengthInSegments,
-			isFirstSequenceSegment, isLastSequenceSegment);
+		isFirstSequenceSegment, isLastSequenceSegment);
 
 	phmmVectorLoop(phmmLengthInVectors, sequenceSegmentStream, phmmStream,
 		isFirstSequenceSegment, isLastSequenceSegment,
@@ -244,11 +240,11 @@ void phmmVectorLoop(phmmPos_t phmmLengthInVectors,
 	hls::stream<ap_uint<CELLS_PER_GROUP>, inputHitReportStreamDepth>& inputHitReportGroupStream_15) {
 
 	static ap_uint<8> cellScores[NUM_CELL_PROCESSORS];
-#pragma HLS array_partition variable = cellScores complete
+	#pragma HLS array_partition variable = cellScores complete
 	//we label this function as inline recursive so that all the called functions get inlined.
 	// this helps timing because Vitis HLS can put pipeline stage breaks anywhere it wants in the computation pipeline,
 	//not just between sub function calls
-#pragma HLS inline recursive
+	#pragma HLS inline recursive
 
 	//create a buffered register for both the score queue read and write.
 	//the score queue read gets initialized to zero because the first cell in the column always gets a 0 (from outside the DP matrix)
@@ -261,44 +257,44 @@ void phmmVectorLoop(phmmPos_t phmmLengthInVectors,
 	struct SequenceSegment currentSequenceSegment;
 
 	sequenceConstructionLoop: for (uint8_t sequenceWordIndex = 0; sequenceWordIndex < NUM_SEQUENCE_SEGMENT_WORDS;
-			sequenceWordIndex++) {
+		sequenceWordIndex++) {
 		currentSequenceSegment.words[sequenceWordIndex] = sequenceSegmentStream.read();
 	}
 
 	HavacPhmmVectorLoop: for (phmmPos_t phmmIndex = 0; phmmIndex < phmmLengthInVectors; phmmIndex++) {
-#pragma HLS PIPELINE II=1
-		//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-pipeline
+	#pragma HLS PIPELINE II=1
+	//https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/pragma-HLS-pipeline
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-    _phmmIndex = phmmIndex;
-    #endif
+	#ifdef HAVAC_PER_CELL_DATA_TESTING
+	_phmmIndex = phmmIndex;
+	#endif
 
 	const phmmPos_t phmmIndexLocalCopy = phmmIndex;
-		//create a match score list, i.e., for each cell, what score should they be given from the phmm vector?
+	//create a match score list, i.e., for each cell, what score should they be given from the phmm vector?
 	struct MatchScoreList matchScoreList;
-		uint32_t prefetchPhmmVector;
-		// vector of bools where a 1 indicates the the corresponding cell passed its threshold this cycle.
-		ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS];
+	uint32_t prefetchPhmmVector;
+	// vector of bools where a 1 indicates the the corresponding cell passed its threshold this cycle.
+	ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS];
 	#pragma HLS array_partition variable=matchScoreList type=complete
-#pragma HLS array_partition variable=cellsPassingThreshold type=complete
+	#pragma HLS array_partition variable=cellsPassingThreshold type=complete
 
-		bool isFirstPhmmIndex, isLastPhmmIndex;
-		isFirstOrLastPhmmVector(phmmIndexLocalCopy, phmmLengthInVectors,
-				isFirstPhmmIndex, isLastPhmmIndex);
-		setPhmmFromStream(prefetchPhmmVector, phmmStream);
+	bool isFirstPhmmIndex, isLastPhmmIndex;
+	isFirstOrLastPhmmVector(phmmIndexLocalCopy, phmmLengthInVectors,
+		isFirstPhmmIndex, isLastPhmmIndex);
+	setPhmmFromStream(prefetchPhmmVector, phmmStream);
 
 	bool hitReportTerminator = isLastPhmmIndex && isLastSequenceSegment;
 
-		//make a copy of the phmm vector, hopefully this will help with fanout.
-		uint32_t currentPhmmVector = prefetchPhmmVector;
+	//make a copy of the phmm vector, hopefully this will help with fanout.
+	uint32_t currentPhmmVector = prefetchPhmmVector;
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-    ap_uint<32> vectorAsApUint(currentPhmmVector);
-    _phmmVector[0] = vectorAsApUint(8 - 1, 0);
-    _phmmVector[1] = vectorAsApUint(16 - 1, 8);
-    _phmmVector[2] = vectorAsApUint(24 - 1, 16);
-    _phmmVector[3] = vectorAsApUint(32 - 1, 24);
-    #endif
+	#ifdef HAVAC_PER_CELL_DATA_TESTING
+	ap_uint<32> vectorAsApUint(currentPhmmVector);
+	_phmmVector[0] = vectorAsApUint(8 - 1, 0);
+	_phmmVector[1] = vectorAsApUint(16 - 1, 8);
+	_phmmVector[2] = vectorAsApUint(24 - 1, 16);
+	_phmmVector[3] = vectorAsApUint(32 - 1, 24);
+	#endif
 
 	generateMatchScoreList(matchScoreList, currentPhmmVector, currentSequenceSegment);
 
@@ -326,9 +322,9 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct
 	ap_uint<CELLS_PER_GROUP> cellsPassingThreshold[NUM_CELL_GROUPS], ap_uint<8> leftScoreIn, bool isFirstPhmmIndex,
 	ap_uint<8>& lastScoreOut) {
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-  _cellIndexInSegment = NUM_CELL_PROCESSORS - 1;
-  #endif
+	#ifdef HAVAC_PER_CELL_DATA_TESTING
+	_cellIndexInSegment = NUM_CELL_PROCESSORS - 1;
+	#endif
 
 	//handle the final cell, since that'll need to save its score to lastScoreOut
 	//this seems to need to be broken out to meet II=1. otherwise, vitis tries to schedule the second access to the final cell
@@ -341,10 +337,10 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct
 	//iterate through the cell processors in reverse, since we need to use cell index i-1, and write to index i.
 	CellProcessorLoop: for (uint32_t cellIndex = NUM_CELL_PROCESSORS - 2; cellIndex != 0; cellIndex--) {
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-    _cellIndexInSegment = cellIndex;
-    #endif
-#pragma HLS unroll
+		#ifdef HAVAC_PER_CELL_DATA_TESTING
+		_cellIndexInSegment = cellIndex;
+		#endif
+		#pragma HLS unroll
 		ap_uint<8> thisCellPrevScore = isFirstPhmmIndex ? ap_uint<8>(0) : cellScores[cellIndex - 1];
 		struct CellResult result = computeCellProcessor(thisCellPrevScore, matchScoreList.scores[cellIndex]);
 
@@ -352,9 +348,9 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct
 		cellsPassingThreshold[cellIndex / CELLS_PER_GROUP].set_bit(cellIndex % CELLS_PER_GROUP, result.passesThreshold);
 	}
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-  _cellIndexInSegment = 0;
-  #endif
+	#ifdef HAVAC_PER_CELL_DATA_TESTING
+	_cellIndexInSegment = 0;
+	#endif
 
 	//handle the first cell processor, since it's an edge case that gets it's prev score from the score queue
 	thisCellPrevScore = isFirstPhmmIndex ? ap_uint<8>(0) : leftScoreIn;
@@ -364,18 +360,16 @@ void computeAllCellProcessors(ap_uint<8> cellScores[NUM_CELL_PROCESSORS], struct
 }
 
 // Read Data from Global Memory and write into Stream inStream
-void loadPhmmStream(uint32_t *phmmVectorMemory,
-		hls::stream<uint32_t, PHMM_STREAM_DEPTH> &phmmVectorStream,
-		const uint32_t phmmLengthInVectors) {
-	phmmReadInnerLoop: for (int phmmIndex = 0; phmmIndex < phmmLengthInVectors;
-			phmmIndex++) {
+void loadPhmmStream(uint32_t* phmmVectorMemory, hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmVectorStream,
+	const phmmPos_t phmmLengthInVectors) {
+	phmmReadInnerLoop: for (phmmPos_t phmmIndex = 0; phmmIndex < phmmLengthInVectors; phmmIndex++) {
 		phmmVectorStream << phmmVectorMemory[phmmIndex];
 	}
 }
 
 struct CellResult computeCellProcessor(ap_uint<8> prevScore,
-		ap_uint<8> matchScore) {
-#pragma HLS INLINE
+	ap_uint<8> matchScore) {
+	#pragma HLS INLINE
 	//this function uses the overflow bit of an 8-bit addition to determine if a threshold hit happened,
 	//or if the value needs to be reset to 0 because of a hit or an underflow to a negative number.
 	//doing it this way saves a comparator inside the cell processes, dramatically cutting down on utilization.
@@ -391,18 +385,18 @@ struct CellResult computeCellProcessor(ap_uint<8> prevScore,
 	result.cellScore = requiresReset ? 0 : putativeSum.range(7, 0); // return 8 bits (without carry)
 	result.passesThreshold = sumCarryBit && !matchScoreSign;
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-  uint8_t _prevScore = prevScore.to_uint64();
-  int8_t _matchScore = matchScore.to_int64();
-  uint16_t _sum = putativeSum.to_uint64();
+	#ifdef HAVAC_PER_CELL_DATA_TESTING
+	uint8_t _prevScore = prevScore.to_uint64();
+	int8_t _matchScore = matchScore.to_int64();
+	uint16_t _sum = putativeSum.to_uint64();
 
-  struct CellCompareKey key = { .phmmIndex = _phmmIndex,
-  .globalSequenceIndex = (_sequenceSegmentIndex * NUM_CELL_PROCESSORS) + _cellIndexInSegment };
-  struct CellCompareValue value = { .prevValue = _prevScore, .matchScore = _matchScore,
-  .cellValue = (uint8_t)result.cellScore.to_uint(), .phmmVector = {_phmmVector[0], _phmmVector[1], _phmmVector[2], _phmmVector[3]},
-  .symbol = _symbols[_cellIndexInSegment], .passesThreshold = result.passesThreshold };
-  addKvToHardwareMap(key, value);
-  #endif
+	struct CellCompareKey key = { .phmmIndex = _phmmIndex,
+	.globalSequenceIndex = (_sequenceSegmentIndex * NUM_CELL_PROCESSORS) + _cellIndexInSegment };
+	struct CellCompareValue value = { .prevValue = _prevScore, .matchScore = _matchScore,
+	.cellValue = (uint8_t)result.cellScore.to_uint(), .phmmVector = {_phmmVector[0], _phmmVector[1], _phmmVector[2], _phmmVector[3]},
+	.symbol = _symbols[_cellIndexInSegment], .passesThreshold = result.passesThreshold };
+	addKvToHardwareMap(key, value);
+	#endif
 
 	return result;
 }
@@ -410,33 +404,25 @@ struct CellResult computeCellProcessor(ap_uint<8> prevScore,
 
 //generates the list of match scores for all cells in the pipeline.
 //That is, for every cell processor, find the value from the phmm to add for that cell.
-void generateMatchScoreList(struct MatchScoreList &matchScoreList,
-		uint32_t currentPhmmVector,
-		struct SequenceSegment currentSequenceSegment) {
-#pragma HLS INLINE
+void generateMatchScoreList(struct MatchScoreList& matchScoreList, uint32_t currentPhmmVector,
+	struct SequenceSegment currentSequenceSegment) {
+	#pragma HLS INLINE
 
 	ap_uint<32> phmmAsApUint(currentPhmmVector);
 	ap_uint<32> phmmDuplicateList[NUM_CELL_PROCESSORS];
-	phmmDuplicateListGenLoop: for (uint32_t i = 0; i < NUM_CELL_PROCESSORS;
-			i++) {
+	phmmDuplicateListGenLoop: for (uint32_t i = 0; i < NUM_CELL_PROCESSORS; i++) {
 		phmmDuplicateList[i] = phmmAsApUint;
 	}
 
 	matchScoreListGenLoop: for (uint32_t sequenceSymbolIndex = 0;
-			sequenceSymbolIndex < NUM_CELL_PROCESSORS; sequenceSymbolIndex++) {
-#pragma HLS unroll
-		//this is a debug line
-//	  matchScoreList.scores[sequenceSymbolIndex] = 0;
+		sequenceSymbolIndex < NUM_CELL_PROCESSORS; sequenceSymbolIndex++) {
+		#pragma HLS unroll
 
-		uint32_t sequenceSegmentWordIndex = sequenceSymbolIndex
-				/ SYMBOLS_PER_SEQUENCE_SEGMENT_WORD;
-		uint32_t symbolInSequenceSegmentWord = sequenceSymbolIndex
-				% SYMBOLS_PER_SEQUENCE_SEGMENT_WORD;
+		uint32_t sequenceSegmentWordIndex = sequenceSymbolIndex / SYMBOLS_PER_SEQUENCE_SEGMENT_WORD;
+		uint32_t symbolInSequenceSegmentWord = sequenceSymbolIndex % SYMBOLS_PER_SEQUENCE_SEGMENT_WORD;
 
-		ap_uint<2> matchSymbol =
-				currentSequenceSegment.words[sequenceSegmentWordIndex].range(
-						(symbolInSequenceSegmentWord * 2) + 1,
-						symbolInSequenceSegmentWord * 2);
+		ap_uint<2> matchSymbol = currentSequenceSegment.words[sequenceSegmentWordIndex].range(
+			(symbolInSequenceSegmentWord * 2) + 1, symbolInSequenceSegmentWord * 2);
 
 		ap_int<8> matchScore;
 
@@ -456,66 +442,38 @@ void generateMatchScoreList(struct MatchScoreList &matchScoreList,
 		}
 		matchScoreList.scores[sequenceSymbolIndex] = matchScore;
 
-#ifdef HAVAC_PER_CELL_DATA_TESTING
-    _symbols[sequenceSymbolIndex] = matchSymbol;
-    #endif
+		#ifdef HAVAC_PER_CELL_DATA_TESTING
+		_symbols[sequenceSymbolIndex] = matchSymbol;
+		#endif
 	}
 }
 
-//ap_uint<8> readScoreFromScoreQueue(hls::stream<ap_uint<8>, SCORE_QUEUE_SIZE>& scoreQueue, bool isFirstSequenceSegment, bool isLastPhmmIndex) {
-ap_uint<8> readScoreFromScoreQueue(ScoreQueue &scoreQueue,
-		bool isFirstSequenceSegment, bool isLastPhmmIndex) {
+ap_uint<8> readScoreFromScoreQueue(bool isFirstSequenceSegment, bool isLastPhmmIndex) {
 	if (isFirstSequenceSegment || isLastPhmmIndex) {
 		return ap_uint<8>(0);
-	} else {
-		return scoreQueue.read();
+	}
+	else {
+		return scoreQueueStream.read();
 	}
 }
 
-//voidwriteScoreToScoreQueue(hls::stream<ap_uint<8>, SCORE_QUEUE_SIZE>& scoreQueue, ap_uint<8>& scoreToWrite, bool isLastSequenceSegment, bool isFirstPhmmIndex) {
-void writeScoreToScoreQueue(ScoreQueue &scoreQueue, ap_uint<8> &scoreToWrite,
-		bool isLastSequenceSegment, bool isFirstPhmmIndex) {
-#pragma HLS pipeline II=1
-	ap_uint<8> bufferedScore = scoreToWrite; //this might help timing, but I think it's probably redundant
-	if (!isLastSequenceSegment && !isFirstPhmmIndex) {
-		scoreQueue.write(bufferedScore);
+void writeScoreToScoreQueue(ap_uint<8> scoreToWrite, bool isLastSequenceSegment, bool isFirstPhmmIndex) {
+	#pragma HLS pipeline II=1
+	if ((!isLastSequenceSegment && !isFirstPhmmIndex)) {
+		scoreQueueStream.write(scoreToWrite);
 	}
-}
-
-//this is the single dumbest function I have every written, and I hope it brings pain to anyone who reads it.
-//all code in a hls dataflow must be either a variable declaration or a void-returning function, so to
-// determine if we're on the first segment, we need to check for zero inside a function, and return by reference.
-void isFirstOrLastSequenceSegment(uint32_t sequenceSegmentIndex,
-		uint32_t sequenceLengthInSegments, bool &isFirstSequenceSegment,
-		bool &isLastSequenceSegment) {
-	isFirstSequenceSegment = sequenceSegmentIndex == 0;
-	isLastSequenceSegment = sequenceSegmentIndex
-			== (sequenceLengthInSegments - 1);
 }
 
 //this is also dumb, see makeIsFirstSequenceSegment
-void isFirstOrLastPhmmVector(uint32_t phmmVectorIndex,
-		uint32_t phmmLengthInVectors, bool &isFirstPhmmVector,
-		bool &isLastPhmmVector) {
+void isFirstOrLastPhmmVector(phmmPos_t phmmVectorIndex, phmmPos_t phmmLengthInVectors,
+	bool& isFirstPhmmVector, bool& isLastPhmmVector) {
 	isFirstPhmmVector = phmmVectorIndex == 0;
 	isLastPhmmVector = phmmVectorIndex == (phmmLengthInVectors - 1);
 }
 
-//void setSequenceSegment(struct SequenceSegment& currentSequenceSegment, hls::stream<SequenceSegmentWord, SEQUENCE_STREAM_DEPTH>& sequenceSegmentStream) {
-//  struct SequenceSegment segment;
-//  for (uint32_t sequenceWordIndex = 0; sequenceWordIndex < NUM_SEQUENCE_SEGMENT_WORDS; sequenceWordIndex++) {
-//    segment.words[sequenceWordIndex] = sequenceSegmentStream.read();
-//  }
-//  currentSequenceSegment = segment;
-//}
 
-void setPhmmFromStream(uint32_t &phmmVector,
-		hls::stream<uint32_t, PHMM_STREAM_DEPTH> &phmmVectorStream) {
+void setPhmmFromStream(uint32_t& phmmVector,
+	hls::stream<uint32_t, PHMM_STREAM_DEPTH>& phmmVectorStream) {
 	phmmVector = phmmVectorStream.read();
 }
 
-void copyScalarInputs(const uint32_t sequenceSegmentIndex,
-		uint32_t &localSequenceSegmentIndex) {
-
-	localSequenceSegmentIndex = sequenceSegmentIndex;
-}
