@@ -8,7 +8,7 @@
 #define HAVAC_LOG_ONE_FOURTH -1.3862943611198906
 
 //this function is straight out of HMMER
-//defines the inverse gumble distribution, that is,
+//defines the inverse gumbel distribution, that is,
 // for a given p-value, what score is required to hit that value?
 // note that this is for the full model, not the single-hit reduced model we're working with,
 // so we'll need to add some penalties later to make it come out to the right values.
@@ -42,7 +42,7 @@ double esl_gumbel_invsurv(double p, double mu, double lambda) {
 float findThreshold256ScalingFactor(double p, double mu, double lambda, double maxLength, double modelLength) {
   //given the probability of survival, give me the score. what score gives the p value?
   //what score do we need to hit the required p value? this value is for the full model. 
-  double scoreRequiredForFullModelPvalue = esl_gumbel_invsurv(p, mu, lambda); //inverse survival (gumble distribution)
+  double scoreRequiredForFullModelPvalue = esl_gumbel_invsurv(p, mu, lambda); //inverse survival (gumbel distribution)
   //we're only working with the single-hit model, so we need to add some penalties to make the probabilities match.
   float nStateLoopPenalty = logf((float)maxLength / (float)(maxLength + 3));  //probablility of staying in the n state (or c state), looping.
   float nStateLoopPenaltyTotal = nStateLoopPenalty * maxLength;  //total length penalty for the max sequence length
@@ -84,7 +84,7 @@ void p7HmmProjectForThreshold256(struct P7Hmm* phmm, float desiredPValue, int8_t
   //therefore, we can scale the scores simply with c1 * c2 * -1 * (x + log(.25))
   // where c1 is the log(2), c2 is the scaleFactor for the desired p-value, and log(.25) can be a precomputed constant.
   float mu = phmm->stats.msvGumbelMu;
-  float lambda = phmm->stats.msvGumbleLambda;
+  float lambda = phmm->stats.msvGumbelLambda;
   float modelLength = phmm->header.modelLength;
   float maxLength = phmm->header.maxLength;
   float scaleFactor = findThreshold256ScalingFactor(desiredPValue, mu, lambda, maxLength, modelLength);
