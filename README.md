@@ -100,3 +100,6 @@ public:
   std::string toString();
 };
 ```
+
+## Benchmarking And Validation
+For more information on benchmarking and recreating the published data set, please see the readme in the benchmarking directory
