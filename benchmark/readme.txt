@@ -59,7 +59,9 @@ This benchmark executable prints out the time taken by the various stages of the
 	
 ## HMMER
 To test the HMMER timings, use /usr/bin/time on the nhmmer executable found in the HMMER/src directory, e.g.,
-	% /usr/bin/time HMMER/src/nhmmer rfam_10000.hmm chr22.fa
+	% /usr/bin/time HMMER/src/nhmmer --watson --cpu 32 rfam_10000.hmm chr22.fa
+	
+the --watson flag forces nhmmer to only compare against one strand and not the reverse-compliment.
 	
 # Visualization script
 A visualization script is included to generate the benchmark figure from the publication. runtime_table.py will generate figure 7 from the publication. It is up to the user to insert the timing data from their own run of the benchmarks into the script.
