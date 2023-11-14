@@ -13,6 +13,6 @@ endif()
 # Set the build directory as the current binary directory
 set(CMAKE_CURRENT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build)
 
-add_executable(HavacBenchmarks HavacBenchmarks.cpp)
+add_executable(HavacBenchmarks HavacBenchmark.cpp)
 
 target_link_libraries(HavacBenchmarks PRIVATE ${CMAKE_SOURCE_DIR}/../host/build/libhavac.a)
